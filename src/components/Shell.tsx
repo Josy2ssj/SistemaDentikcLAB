@@ -51,6 +51,10 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
       {/* Main content */}
       <main className="relative z-10 flex-1 overflow-hidden">
+        {/* Lavender ambient spot */}
+        <div className="fixed top-[15%] right-[25%] w-[40%] h-[50%] pointer-events-none z-0"
+          style={{ background: 'radial-gradient(ellipse, rgba(237, 233, 254, 0.18) 0%, transparent 70%)' }}
+        />
         {children}
       </main>
     </div>

@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Order, TreatmentType } from '../types';
-import { eachDayOfInterval, format, parseISO, isToday, isSameDay, startOfWeek, addDays, addWeeks } from 'date-fns';
+import { eachDayOfInterval, format, parseISO, isToday, isSameDay, addWeeks } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Circle, Triangle, Square, Diamond, Star, FileText } from 'lucide-react';
 
 interface TimelineProps {
   orders: Order[];
@@ -27,28 +26,69 @@ function getStatusColor(order: Order): string {
   return statusColors[order.status] || '#94a3b8';
 }
 
-function getTreatmentIcon(type: TreatmentType) {
-  const size = 14;
+// Custom SVG icons for treatment types
+function TreatmentIcon({ type, size = 18 }: { type: TreatmentType; size?: number }) {
   const sw = 1.5;
   switch (type) {
-    case 'Alineadores': return <Circle size={size} strokeWidth={sw} />;
-    case 'Retenedores': return <Triangle size={size} strokeWidth={sw} />;
-    case 'Modelos': return <Square size={size} strokeWidth={sw} />;
-    case 'Guías quirúrgicas': return <Diamond size={size} strokeWidth={sw} />;
-    case 'Guardas': return <Star size={size} strokeWidth={sw} />;
-    default: return <FileText size={size} strokeWidth={sw} />;
+    case 'Alineadores':
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={sw}>
+          <path d="M12 2C8 2 6 4 6 8c0 3 2 6 6 6s6-3 6-6c0-4-2-6-6-6z" />
+          <path d="M9 14v4c0 1 1 2 3 2s3-1 3-2v-4" />
+        </svg>
+      );
+    case 'Retenedores':
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={sw}>
+          <path d="M4 12c0-4 3-7 8-7s8 3 8 7" />
+          <path d="M6 12v6c0 1 1 2 2 2h8c1 0 2-1 2-2v-6" />
+          <line x1="9" y1="12" x2="9" y2="20" />
+          <line x1="15" y1="12" x2="15" y2="20" />
+        </svg>
+      );
+    case 'Modelos':
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={sw}>
+          <rect x="5" y="4" width="14" height="16" rx="2" />
+          <path d="M9 8h6M9 12h6M9 16h4" />
+        </svg>
+      );
+    case 'Guías quirúrgicas':
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={sw}>
+          <circle cx="12" cy="12" r="3" />
+          <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+          <circle cx="12" cy="12" r="8" strokeDasharray="2 2" />
+        </svg>
+      );
+    case 'Guardas':
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={sw}>
+          <path d="M12 2L4 7v6c0 5 3.5 8.5 8 9 4.5-.5 8-4 8-9V7l-8-5z" />
+          <path d="M9 12l2 2 4-4" />
+        </svg>
+      );
+    default:
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={sw}>
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="16" y1="13" x2="8" y2="13" />
+          <line x1="16" y1="17" x2="8" y2="17" />
+        </svg>
+      );
   }
 }
 
 function getBranchOffset(index: number, total: number): number {
   if (total === 1) return 0;
   const spread = Math.min(total - 1, 4);
-  const step = 36;
+  const step = 40;
   return (index - (total - 1) / 2) * step;
 }
 
 function getDepth(index: number): number {
-  return 60 + (index % 3) * 18;
+  return 70 + (index % 3) * 20;
 }
 
 export default function Timeline({ orders, weekStart, weekEnd, onSelectOrder }: TimelineProps) {
@@ -56,10 +96,14 @@ export default function Timeline({ orders, weekStart, weekEnd, onSelectOrder }: 
   const [hoverPos, setHoverPos] = useState({ x: 0, y: 0 });
 
   const days = useMemo(() => {
-    return eachDayOfInterval({ start: weekStart, end: addDays(weekEnd, -1) });
-  }, [weekStart, weekEnd]);
+    // Exactly 21 days (3 weeks)
+    return Array.from({ length: 21 }, (_, i) => {
+      const d = new Date(weekStart);
+      d.setDate(d.getDate() + i);
+      return d;
+    });
+  }, [weekStart]);
 
-  // Group orders by requestedDate
   const ordersByDate = useMemo(() => {
     const map = new Map<string, Order[]>();
     orders.forEach(o => {
@@ -70,58 +114,68 @@ export default function Timeline({ orders, weekStart, weekEnd, onSelectOrder }: 
     return map;
   }, [orders]);
 
-  const dayWidth = 80;
+  const dayWidth = 85;
   const totalWidth = days.length * dayWidth;
-  const lineY = 50;
+  const lineY = 60;
 
-  // Create week separators
-  const weekSeparators = useMemo(() => {
-    const seps: Date[] = [];
-    let current = weekStart;
-    while (current < weekEnd) {
-      seps.push(current);
-      current = addWeeks(current, 1);
+  // Week groups
+  const weeks = useMemo(() => {
+    const result = [];
+    for (let i = 0; i < 3; i++) {
+      const wStart = addWeeks(weekStart, i);
+      const wEnd = addWeeks(wStart, 6);
+      result.push({ start: wStart, end: wEnd, index: i });
     }
-    return seps;
-  }, [weekStart, weekEnd]);
+    return result;
+  }, [weekStart]);
 
   return (
-    <div className="relative h-full min-h-[240px]">
+    <div className="relative h-full min-h-[280px]">
+      {/* Week headers */}
+      <div className="absolute top-0 left-0 flex" style={{ width: totalWidth }}>
+        {weeks.map((week, idx) => (
+          <div key={idx} className="flex flex-col items-center" style={{ width: dayWidth * 7 }}>
+            <div className="text-[10px] font-medium text-slate-text/80 mb-1 tracking-wide">
+              {format(week.start, 'd', { locale: es })} – {format(week.end, "d MMM yyyy", { locale: es })}
+            </div>
+          </div>
+        ))}
+      </div>
+
       {/* SVG for lines */}
       <svg
         width={totalWidth}
-        height={240}
+        height={280}
         className="absolute top-0 left-0"
-        style={{ minWidth: totalWidth }}
+        style={{ minWidth: totalWidth, top: 20 }}
       >
+        {/* Week separators - very subtle */}
+        {[1, 2].map(i => {
+          const x = i * 7 * dayWidth;
+          return (
+            <line
+              key={i}
+              x1={x}
+              y1={lineY - 15}
+              x2={x}
+              y2={lineY + 15}
+              stroke="#cbd5e1"
+              strokeWidth={1}
+              strokeDasharray="2,4"
+              opacity={0.5}
+            />
+          );
+        })}
+
         {/* Main baseline - perfectly straight */}
         <line
           x1={0}
           y1={lineY}
           x2={totalWidth}
           y2={lineY}
-          stroke="#e2e8f0"
-          strokeWidth={2}
+          stroke="#cbd5e1"
+          strokeWidth={1.5}
         />
-
-        {/* Week separators */}
-        {weekSeparators.map((sep, i) => {
-          const dayIndex = days.findIndex(d => isSameDay(d, sep));
-          if (dayIndex === -1) return null;
-          const x = dayIndex * dayWidth + dayWidth / 2;
-          return (
-            <line
-              key={i}
-              x1={x - dayWidth / 2}
-              y1={lineY - 8}
-              x2={x - dayWidth / 2}
-              y2={lineY + 8}
-              stroke="#cbd5e1"
-              strokeWidth={1}
-              strokeDasharray="3,3"
-            />
-          );
-        })}
 
         {/* Branches to orders */}
         {days.map((day, dayIdx) => {
@@ -137,11 +191,11 @@ export default function Timeline({ orders, weekStart, weekEnd, onSelectOrder }: 
             const nodeX = anchorX + offsetX;
             const nodeY = lineY + depth;
 
-            // Curved path from anchor to node
+            // Organic Bezier curve
             const cp1x = anchorX;
-            const cp1y = lineY + depth * 0.3;
+            const cp1y = lineY + depth * 0.4;
             const cp2x = nodeX;
-            const cp2y = lineY + depth * 0.7;
+            const cp2y = lineY + depth * 0.6;
 
             return (
               <path
@@ -150,7 +204,7 @@ export default function Timeline({ orders, weekStart, weekEnd, onSelectOrder }: 
                 fill="none"
                 stroke={getStatusColor(order)}
                 strokeWidth={1.5}
-                strokeOpacity={0.4}
+                strokeOpacity={0.3}
               />
             );
           });
@@ -158,7 +212,7 @@ export default function Timeline({ orders, weekStart, weekEnd, onSelectOrder }: 
       </svg>
 
       {/* Day labels */}
-      <div className="absolute top-0 left-0 flex" style={{ width: totalWidth }}>
+      <div className="absolute top-0 left-0 flex" style={{ width: totalWidth, top: 20 }}>
         {days.map((day, idx) => {
           const isTodayDate = isToday(day);
           const dateKey = format(day, 'yyyy-MM-dd');
@@ -176,12 +230,12 @@ export default function Timeline({ orders, weekStart, weekEnd, onSelectOrder }: 
                   <span className={`text-[10px] font-medium ${isTodayDate ? 'text-blue-primary' : 'text-navy'}`}>
                     {format(day, 'EEE', { locale: es })}
                   </span>
-                  <span className={`text-[13px] font-semibold ${isTodayDate ? 'text-blue-primary' : 'text-navy'}`}>
+                  <span className={`text-[14px] font-semibold ${isTodayDate ? 'text-blue-primary' : 'text-navy'}`}>
                     {format(day, 'd')}
                   </span>
                 </>
               ) : (
-                <div className={`w-1.5 h-1.5 rounded-full mt-5 ${isTodayDate ? 'bg-blue-primary' : 'bg-slate-300'}`} />
+                <div className={`w-1.5 h-1.5 rounded-full mt-6 ${isTodayDate ? 'bg-blue-primary' : 'bg-slate-300'}`} />
               )}
             </div>
           );
@@ -189,7 +243,7 @@ export default function Timeline({ orders, weekStart, weekEnd, onSelectOrder }: 
       </div>
 
       {/* Order nodes */}
-      <div className="absolute top-0 left-0" style={{ width: totalWidth, height: 240 }}>
+      <div className="absolute top-0 left-0" style={{ width: totalWidth, height: 280, top: 20 }}>
         {days.map((day, dayIdx) => {
           const dateKey = format(day, 'yyyy-MM-dd');
           const dayOrders = ordersByDate.get(dateKey) || [];
@@ -209,10 +263,10 @@ export default function Timeline({ orders, weekStart, weekEnd, onSelectOrder }: 
                 key={order.id}
                 className="absolute cursor-pointer group"
                 style={{
-                  left: nodeX - 16,
-                  top: nodeY - 16,
-                  width: 32,
-                  height: 32,
+                  left: nodeX - 22,
+                  top: nodeY - 22,
+                  width: 44,
+                  height: 44,
                 }}
                 onClick={() => onSelectOrder(order)}
                 onMouseEnter={(e) => {
@@ -221,15 +275,21 @@ export default function Timeline({ orders, weekStart, weekEnd, onSelectOrder }: 
                 }}
                 onMouseLeave={() => setHoveredOrder(null)}
               >
-                <div className="w-8 h-8 rounded-full bg-white border border-black/5 shadow-sm flex items-center justify-center text-navy group-hover:shadow-md transition-shadow"
-                  style={{ boxShadow: `0 0 0 2px ${color}20, 0 1px 3px rgba(0,0,0,0.08)` }}
+                <div 
+                  className="w-full h-full rounded-full bg-white border border-black/5 flex items-center justify-center text-navy group-hover:scale-105 transition-transform"
+                  style={{ 
+                    boxShadow: `0 0 0 3px ${color}15, 0 2px 8px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04)`,
+                  }}
                 >
-                  {getTreatmentIcon(order.treatmentType)}
+                  <TreatmentIcon type={order.treatmentType} size={20} />
                 </div>
-                {/* Status dot */}
+                {/* Status dot with halo */}
                 <div
-                  className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white"
-                  style={{ background: color }}
+                  className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white"
+                  style={{ 
+                    background: color,
+                    boxShadow: `0 0 0 2px ${color}30`,
+                  }}
                 />
               </div>
             );
@@ -243,12 +303,12 @@ export default function Timeline({ orders, weekStart, weekEnd, onSelectOrder }: 
           className="fixed z-50 card-sm px-3 py-2.5 pointer-events-none"
           style={{
             left: hoverPos.x + 12,
-            top: hoverPos.y - 60,
-            minWidth: 180,
+            top: hoverPos.y - 70,
+            minWidth: 200,
           }}
         >
           <div className="text-[12px] font-semibold text-navy">{hoveredOrder.patientName}</div>
-          <div className="text-[11px] text-slate-text">{hoveredOrder.treatmentType} · {hoveredOrder.arch}</div>
+          <div className="text-[11px] text-slate-text mt-0.5">{hoveredOrder.treatmentType} · {hoveredOrder.arch}</div>
           <div className="flex items-center gap-2 mt-1.5">
             <span className="text-[11px] font-medium" style={{ color: getStatusColor(hoveredOrder) }}>
               {hoveredOrder.status}
@@ -260,37 +320,6 @@ export default function Timeline({ orders, weekStart, weekEnd, onSelectOrder }: 
           </div>
         </div>
       )}
-
-      {/* Bottom navigator */}
-      <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-4 py-2 border-t border-black/5">
-        <div className="flex items-center gap-2">
-          <span className="text-[12px] font-medium text-navy">
-            {format(weekStart, 'MMMM yyyy', { locale: es })}
-          </span>
-        </div>
-        <div className="flex items-center gap-1">
-          {Array.from({ length: Math.ceil(days.length / 7) }).map((_, weekIdx) => {
-            const todayIdx = days.findIndex(d => isToday(d));
-            const currentWeekIdx = todayIdx >= 0 ? Math.floor(todayIdx / 7) : 0;
-            const isActive = weekIdx === currentWeekIdx;
-            const wStart = addDays(weekStart, weekIdx * 7);
-            const wEnd = addDays(wStart, 6);
-            return (
-              <div
-                key={weekIdx}
-                className={`px-2.5 py-1 rounded-full text-[10px] font-medium transition-all ${
-                  isActive ? 'bg-navy text-white' : 'bg-black/5 text-slate-text'
-                }`}
-              >
-                {format(wStart, 'd')}–{format(wEnd, 'd')}
-              </div>
-            );
-          })}
-        </div>
-        <div className="text-[12px] text-slate-text">
-          {format(addDays(weekEnd, -1), 'MMMM yyyy', { locale: es })}
-        </div>
-      </div>
     </div>
   );
 }

@@ -8,7 +8,7 @@
   --color-slate-text: #64748b;
   --color-surface: #ffffff;
   --color-surface-milky: #f8f9fc;
-  --color-bg: #f5f6fa;
+  --color-bg: #f8f9fc;
   --color-pastel-blue: #dbeafe;
   --color-pastel-mint: #d1fae5;
   --color-pastel-yellow: #fef3c7;
@@ -39,16 +39,16 @@
 
 @layer components {
   .card {
-    background: var(--color-surface);
-    border: 1px solid rgba(0,0,0,0.04);
-    border-radius: 18px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.02);
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(148, 163, 184, 0.1);
+    border-radius: 22px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03), 0 8px 24px rgba(0, 0, 0, 0.04);
   }
   .card-sm {
-    background: var(--color-surface);
-    border: 1px solid rgba(0,0,0,0.04);
-    border-radius: 14px;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(148, 163, 184, 0.08);
+    border-radius: 16px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02), 0 4px 12px rgba(0, 0, 0, 0.03);
   }
   .btn-primary {
     background: var(--color-blue-primary);
@@ -85,8 +85,9 @@
     border: none;
   }
   .pill-active {
-    background: var(--color-navy);
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
     color: white;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
   }
   .pill-inactive {
     background: transparent;
@@ -99,13 +100,13 @@
   .input-field {
     width: 100%;
     padding: 8px 12px;
-    border: 1px solid rgba(0,0,0,0.08);
-    border-radius: 12px;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    border-radius: 14px;
     font-size: 13px;
     background: var(--color-surface);
     color: var(--color-navy);
     outline: none;
-    transition: border-color 0.15s ease;
+    transition: all 0.15s ease;
   }
   .input-field:focus {
     border-color: var(--color-blue-primary);
@@ -114,29 +115,30 @@
   .input-field::placeholder { color: #94a3b8; }
 }
 
-/* Ambient background */
+/* Ambient background - extremely subtle atmospheric contamination */
 .ambient-bg {
   position: relative;
+  background: #f8f9fc;
 }
 .ambient-bg::before {
   content: '';
   position: fixed;
-  top: -20%;
-  left: -10%;
-  width: 50%;
-  height: 60%;
-  background: radial-gradient(ellipse, rgba(219,234,254,0.4) 0%, transparent 70%);
+  top: -30%;
+  left: -15%;
+  width: 60%;
+  height: 70%;
+  background: radial-gradient(ellipse, rgba(219, 234, 254, 0.35) 0%, transparent 65%);
   pointer-events: none;
   z-index: 0;
 }
 .ambient-bg::after {
   content: '';
   position: fixed;
-  bottom: -10%;
-  right: -10%;
-  width: 40%;
-  height: 50%;
-  background: radial-gradient(ellipse, rgba(237,233,254,0.3) 0%, transparent 70%);
+  bottom: -20%;
+  right: -15%;
+  width: 50%;
+  height: 60%;
+  background: radial-gradient(ellipse, rgba(254, 243, 199, 0.2) 0%, transparent 65%);
   pointer-events: none;
   z-index: 0;
 }
@@ -147,12 +149,16 @@
 ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.08); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.15); }
 
-/* Utility rail scrollbar - slightly more visible */
+/* Utility rail scrollbar - subtle but visible */
 .scrollbar-thin::-webkit-scrollbar { width: 5px; }
 .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
 .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 3px; }
 .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.2); }
 .scrollbar-thin { scrollbar-width: thin; scrollbar-color: rgba(0,0,0,0.12) transparent; }
+
+/* Timeline scrollbar hidden */
+.timeline-scroll::-webkit-scrollbar { display: none; }
+.timeline-scroll { scrollbar-width: none; }
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
