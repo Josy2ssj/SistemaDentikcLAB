@@ -7,12 +7,28 @@ interface RecentOrdersProps {
   onSelectOrder: (order: Order) => void;
 }
 
-const statusColors: Record<string, string> = {
-  'Pendiente': 'bg-pastel-yellow text-amber-700',
-  'En proceso': 'bg-pastel-blue text-blue-700',
-  'Lista': 'bg-pastel-mint text-emerald-700',
-  'Entregada': 'bg-gray-100 text-gray-600',
-};
+// Sistema de 3 estados simplificado
+function getStatusClasses(order: Order): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const reqDate = parseISO(order.requestedDate);
+  reqDate.setHours(0, 0, 0, 0);
+  
+  if (order.status !== 'Entregada' && reqDate < today) return 'bg-pastel-coral text-red-700';
+  if (order.status === 'Entregada') return 'bg-pastel-mint text-emerald-700';
+  return 'bg-pastel-yellow text-amber-700';
+}
+
+function getStatusLabel(order: Order): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const reqDate = parseISO(order.requestedDate);
+  reqDate.setHours(0, 0, 0, 0);
+  
+  if (order.status !== 'Entregada' && reqDate < today) return 'Atrasada';
+  if (order.status === 'Entregada') return 'Entregada';
+  return 'Pendiente';
+}
 
 const treatmentBg: Record<TreatmentType, string> = {
   'Alineadores': 'bg-pastel-blue',
@@ -104,8 +120,8 @@ export default function RecentOrders({ orders, onSelectOrder }: RecentOrdersProp
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-0.5">
                   <span className="text-[10px] font-medium text-slate-text">{order.id}</span>
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${statusColors[order.status]}`}>
-                    {order.status}
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${getStatusClasses(order)}`}>
+                    {getStatusLabel(order)}
                   </span>
                 </div>
                 <div className="text-[12px] font-medium text-navy truncate leading-tight">{order.patientName}</div>

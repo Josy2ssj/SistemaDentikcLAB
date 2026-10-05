@@ -1,28 +1,37 @@
 import { useMemo, useState } from 'react';
 import { Order, TreatmentType } from '../types';
-import { format, parseISO, isToday, addWeeks, addDays } from 'date-fns';
+import { format, parseISO, isToday, addWeeks, addDays, startOfWeek, isBefore, isAfter } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 interface TimelineProps {
   orders: Order[];
-  weekStart: Date;
+  currentDate: Date;
+  weekOffset: number;
   onSelectOrder: (order: Order) => void;
+  onWeekChange: (offset: number) => void;
 }
 
-const statusColors: Record<string, string> = {
-  'Pendiente': '#f59e0b',
-  'En proceso': '#3b82f6',
-  'Lista': '#10b981',
-  'Entregada': '#94a3b8',
-};
-
+// Sistema de 3 estados simplificado
 function getStatusColor(order: Order): string {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const reqDate = parseISO(order.requestedDate);
   reqDate.setHours(0, 0, 0, 0);
+  
   if (order.status !== 'Entregada' && reqDate < today) return '#ef4444';
-  return statusColors[order.status] || '#94a3b8';
+  if (order.status === 'Entregada') return '#10b981';
+  return '#f59e0b';
+}
+
+function getStatusLabel(order: Order): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const reqDate = parseISO(order.requestedDate);
+  reqDate.setHours(0, 0, 0, 0);
+  
+  if (order.status !== 'Entregada' && reqDate < today) return 'Atrasada';
+  if (order.status === 'Entregada') return 'Entregada';
+  return 'Pendiente';
 }
 
 function TreatmentIcon({ type, size = 18 }: { type: TreatmentType; size?: number }) {
@@ -78,27 +87,23 @@ function TreatmentIcon({ type, size = 18 }: { type: TreatmentType; size?: number
   }
 }
 
-function getBranchOffset(index: number, total: number): number {
-  if (total === 1) return 0;
-  const step = 38;
-  return (index - (total - 1) / 2) * step;
-}
-
-function getDepth(index: number): number {
-  const baseDepth = 45;
-  const variations = [0, 18, 36, 12, 28];
-  return baseDepth + variations[index % variations.length];
-}
-
-export default function Timeline({ orders, weekStart, onSelectOrder }: TimelineProps) {
+export default function Timeline({ orders, currentDate, weekOffset, onSelectOrder, onWeekChange }: TimelineProps) {
   const [hoveredOrder, setHoveredOrder] = useState<Order | null>(null);
   const [hoverPos, setHoverPos] = useState({ x: 0, y: 0 });
 
-  // Exactly 21 days (3 weeks)
+  // Calcular rango de 3 semanas: pasada parcial + actual + siguiente
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const currentWeekStart = startOfWeek(today, { weekStartsOn: 1 });
+  const baseWeekStart = addWeeks(currentWeekStart, weekOffset);
+  
+  // 3 semanas: 7 días de la pasada + 7 de la actual + 7 de la siguiente = 21 días
   const days = useMemo(() => {
-    return Array.from({ length: 21 }, (_, i) => addDays(weekStart, i));
-  }, [weekStart]);
+    return Array.from({ length: 21 }, (_, i) => addDays(baseWeekStart, i));
+  }, [baseWeekStart]);
 
+  // Agrupar órdenes por fecha
   const ordersByDate = useMemo(() => {
     const map = new Map<string, Order[]>();
     orders.forEach(o => {
@@ -109,221 +114,387 @@ export default function Timeline({ orders, weekStart, onSelectOrder }: TimelineP
     return map;
   }, [orders]);
 
-  const lineY = 50;
-  const timelineHeight = 200;
+  // Configuración visual
+  const lineY = 80;
+  const timelineHeight = 280;
+  const dayWidth = 100;
+  const totalWidth = days.length * dayWidth;
+
+  // Calcular posiciones de órdenes con curvas que no choquen
+  const orderPositions = useMemo(() => {
+    const positions = new Map<string, { x: number; y: number; curve: number }>();
+    
+    days.forEach((day, dayIdx) => {
+      const dateKey = format(day, 'yyyy-MM-dd');
+      const dayOrders = ordersByDate.get(dateKey) || [];
+      
+      if (dayOrders.length === 0) return;
+      
+      const baseX = dayIdx * dayWidth + dayWidth / 2;
+      
+      dayOrders.forEach((order, orderIdx) => {
+        // Distribuir órdenes en abanico para evitar choques
+        const angle = (orderIdx / Math.max(dayOrders.length - 1, 1)) * Math.PI - Math.PI / 2;
+        const radius = 50 + (orderIdx * 15);
+        const offsetX = Math.cos(angle) * radius * 0.3;
+        const offsetY = Math.sin(angle) * radius * 0.5 + 40;
+        
+        positions.set(order.id, {
+          x: baseX + offsetX,
+          y: lineY + offsetY,
+          curve: offsetX * 0.5
+        });
+      });
+    });
+    
+    return positions;
+  }, [days, ordersByDate, lineY]);
+
+  // Encontrar índice del día actual
+  const todayIndex = days.findIndex(d => isToday(d));
 
   return (
-    <div className="relative h-full" style={{ minHeight: timelineHeight }}>
-      {/* Week headers */}
-      <div className="absolute top-0 left-0 right-0 flex">
-        {[0, 1, 2].map(weekIdx => {
-          const wStart = addWeeks(weekStart, weekIdx);
-          const wEnd = addDays(wStart, 6);
-          return (
-            <div key={weekIdx} className="flex-1 flex justify-center">
-              <div className="text-[10px] font-semibold text-navy/60 bg-white/40 px-3 py-1 rounded-full">
-                {format(wStart, 'd', { locale: es })}–{format(wEnd, 'd MMM yyyy', { locale: es })}
+    <div className="relative w-full h-full flex flex-col">
+      {/* Contenedor principal del timeline */}
+      <div className="flex-1 relative overflow-hidden">
+        {/* Flecha izquierda */}
+        <button
+          onClick={() => onWeekChange(weekOffset - 1)}
+          className="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white/90 border border-black/10 flex items-center justify-center text-slate-text hover:text-navy hover:border-black/20 transition-all shadow-md hover:shadow-lg"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </button>
+
+        {/* Flecha derecha */}
+        <button
+          onClick={() => onWeekChange(weekOffset + 1)}
+          className="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white/90 border border-black/10 flex items-center justify-center text-slate-text hover:text-navy hover:border-black/20 transition-all shadow-md hover:shadow-lg"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </button>
+
+        {/* Área scrollable del timeline */}
+        <div className="w-full h-full overflow-x-auto overflow-y-hidden timeline-scroll">
+          <div className="relative h-full" style={{ width: totalWidth, minHeight: timelineHeight }}>
+            
+            {/* Indicador de "HOY" - línea vertical + glow */}
+            {todayIndex >= 0 && (
+              <>
+                <div
+                  className="absolute top-0 bottom-0 w-px bg-blue-primary/30"
+                  style={{ left: todayIndex * dayWidth + dayWidth / 2 }}
+                />
+                <div
+                  className="absolute top-0 bottom-0 w-16 bg-gradient-to-b from-blue-primary/10 via-blue-primary/5 to-transparent"
+                  style={{ left: todayIndex * dayWidth + dayWidth / 2 - 32 }}
+                />
+                <div
+                  className="absolute top-2 px-2 py-0.5 rounded-full bg-blue-primary text-white text-[10px] font-bold shadow-md"
+                  style={{ left: todayIndex * dayWidth + dayWidth / 2 - 15 }}
+                >
+                  HOY
+                </div>
+              </>
+            )}
+
+            {/* SVG para líneas y ramas */}
+            <svg width={totalWidth} height={timelineHeight} className="absolute top-0 left-0">
+              <defs>
+                {/* Gradientes para ramas */}
+                {Array.from(orderPositions.entries()).map(([orderId, pos]) => {
+                  const order = orders.find(o => o.id === orderId);
+                  if (!order) return null;
+                  const color = getStatusColor(order);
+                  return (
+                    <linearGradient key={`grad-${orderId}`} id={`grad-${orderId}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stopColor={color} stopOpacity="0.6" />
+                      <stop offset="100%" stopColor={color} stopOpacity="0.2" />
+                    </linearGradient>
+                  );
+                })}
+              </defs>
+
+              {/* Línea principal */}
+              <line
+                x1="0"
+                y1={lineY}
+                x2={totalWidth}
+                y2={lineY}
+                stroke="#cbd5e1"
+                strokeWidth="2"
+                opacity="0.4"
+              />
+
+              {/* Puntos de anclaje para cada día */}
+              {days.map((day, idx) => {
+                const dateKey = format(day, 'yyyy-MM-dd');
+                const dayOrders = ordersByDate.get(dateKey) || [];
+                const hasOrders = dayOrders.length > 0;
+                const isTodayDate = isToday(day);
+                const x = idx * dayWidth + dayWidth / 2;
+
+                return (
+                  <circle
+                    key={`anchor-${dateKey}`}
+                    cx={x}
+                    cy={lineY}
+                    r={hasOrders ? 6 : isTodayDate ? 5 : 2}
+                    fill={hasOrders ? '#1e293b' : isTodayDate ? '#3b82f6' : '#cbd5e1'}
+                    opacity={hasOrders ? 0.8 : isTodayDate ? 1 : 0.3}
+                  />
+                );
+              })}
+
+              {/* Ramas con curvas y degradados */}
+              {Array.from(orderPositions.entries()).map(([orderId, pos]) => {
+                const order = orders.find(o => o.id === orderId);
+                if (!order) return null;
+                
+                const dateKey = order.requestedDate;
+                const dayIdx = days.findIndex(d => format(d, 'yyyy-MM-dd') === dateKey);
+                if (dayIdx < 0) return null;
+                
+                const startX = dayIdx * dayWidth + dayWidth / 2;
+                const startY = lineY;
+                const endX = pos.x;
+                const endY = pos.y;
+                const curve = pos.curve;
+
+                // Curva Bezier suave
+                const path = `M ${startX} ${startY} Q ${startX + curve} ${(startY + endY) / 2}, ${endX} ${endY}`;
+
+                return (
+                  <path
+                    key={`branch-${orderId}`}
+                    d={path}
+                    fill="none"
+                    stroke={`url(#grad-${orderId})`}
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                );
+              })}
+            </svg>
+
+            {/* Etiquetas de días */}
+            <div className="absolute top-0 left-0 flex" style={{ width: totalWidth }}>
+              {days.map((day, idx) => {
+                const dateKey = format(day, 'yyyy-MM-dd');
+                const dayOrders = ordersByDate.get(dateKey) || [];
+                const hasOrders = dayOrders.length > 0;
+                const isTodayDate = isToday(day);
+                const x = idx * dayWidth;
+
+                return (
+                  <div
+                    key={`label-${dateKey}`}
+                    className="absolute flex flex-col items-center"
+                    style={{ left: x, width: dayWidth, top: lineY - 50 }}
+                  >
+                    {hasOrders && (
+                      <>
+                        <div className={`text-[10px] font-semibold ${isTodayDate ? 'text-blue-primary' : 'text-navy/70'}`}>
+                          {format(day, 'EEE', { locale: es })}
+                        </div>
+                        <div className={`text-[14px] font-bold ${isTodayDate ? 'text-blue-primary' : 'text-navy'}`}>
+                          {format(day, 'd')}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Nodos de órdenes */}
+            {Array.from(orderPositions.entries()).map(([orderId, pos]) => {
+              const order = orders.find(o => o.id === orderId);
+              if (!order) return null;
+              
+              const color = getStatusColor(order);
+
+              return (
+                <div
+                  key={`node-${orderId}`}
+                  className="absolute cursor-pointer group"
+                  style={{
+                    left: pos.x - 21,
+                    top: pos.y - 21,
+                    width: 42,
+                    height: 42,
+                  }}
+                  onClick={() => onSelectOrder(order)}
+                  onMouseEnter={(e) => {
+                    setHoveredOrder(order);
+                    setHoverPos({ x: e.clientX, y: e.clientY });
+                  }}
+                  onMouseLeave={() => setHoveredOrder(null)}
+                >
+                  {/* Nodo principal */}
+                  <div 
+                    className="w-full h-full rounded-full bg-white border-2 border-white flex items-center justify-center text-navy group-hover:scale-110 transition-transform shadow-lg"
+                    style={{ 
+                      boxShadow: `0 0 0 3px ${color}30, 0 4px 12px rgba(0,0,0,0.15)`,
+                    }}
+                  >
+                    <TreatmentIcon type={order.treatmentType} size={18} />
+                  </div>
+                  
+                  {/* Indicador de estado con halo */}
+                  <div
+                    className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-white"
+                    style={{ 
+                      background: color,
+                      boxShadow: `0 0 0 2px ${color}40, 0 0 8px ${color}60`,
+                    }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Tooltip hover */}
+        {hoveredOrder && (
+          <div
+            className="fixed z-50 card-sm px-4 py-3 pointer-events-none shadow-xl"
+            style={{
+              left: hoverPos.x + 16,
+              top: hoverPos.y - 120,
+              minWidth: 240,
+            }}
+          >
+            <div className="text-[13px] font-bold text-navy mb-1">{hoveredOrder.patientName}</div>
+            <div className="space-y-1 text-[11px]">
+              <div className="flex justify-between">
+                <span className="text-slate-text">Tratamiento:</span>
+                <span className="font-medium text-navy">{hoveredOrder.treatmentType}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-text">Arcada:</span>
+                <span className="font-medium text-navy">{hoveredOrder.arch}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-text">Fecha inicial:</span>
+                <span className="font-medium text-navy">{format(parseISO(hoveredOrder.createdAt), 'd MMM', { locale: es })}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-text">Fecha solicitada:</span>
+                <span className="font-medium text-navy">{format(parseISO(hoveredOrder.requestedDate), 'd MMM', { locale: es })}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-text">Estado:</span>
+                <span className="font-bold" style={{ color: getStatusColor(hoveredOrder) }}>
+                  {getStatusLabel(hoveredOrder)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-text">Responsable:</span>
+                <span className="font-medium text-navy">{hoveredOrder.responsible}</span>
               </div>
             </div>
-          );
-        })}
+          </div>
+        )}
       </div>
 
-      {/* SVG for lines and branches */}
-      <svg
-        width="100%"
-        height={timelineHeight}
-        className="absolute top-0 left-0"
-        style={{ top: 20 }}
-      >
-        {/* Week separators */}
-        {[1, 2].map(i => (
-          <line
-            key={i}
-            x1={`${(i * 100) / 3}%`}
-            y1={lineY - 12}
-            x2={`${(i * 100) / 3}%`}
-            y2={lineY + 12}
-            stroke="#cbd5e1"
-            strokeWidth={1}
-            strokeDasharray="2,4"
-            opacity={0.4}
-          />
-        ))}
+      {/* Minimapa inferior */}
+      <div className="h-16 border-t border-black/5 bg-gradient-to-r from-black/[0.02] via-black/[0.03] to-black/[0.02] flex items-center px-6 gap-4">
+        {/* Controles izquierda */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onWeekChange(weekOffset - 1)}
+            className="w-7 h-7 rounded-full bg-white border border-black/10 flex items-center justify-center text-slate-text hover:text-navy hover:border-black/20 transition-all shadow-sm"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
+          <button
+            onClick={() => onWeekChange(weekOffset + 1)}
+            className="w-7 h-7 rounded-full bg-white border border-black/10 flex items-center justify-center text-slate-text hover:text-navy hover:border-black/20 transition-all shadow-sm"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </button>
+          <div className="w-px h-4 bg-black/10 mx-1" />
+          <span className="text-[11px] font-semibold text-navy">
+            {format(baseWeekStart, 'MMM yyyy', { locale: es })}
+          </span>
+        </div>
 
-        {/* Main baseline - perfectly straight */}
-        <line
-          x1="0%"
-          y1={lineY}
-          x2="100%"
-          y2={lineY}
-          stroke="#94a3b8"
-          strokeWidth={1.5}
-          opacity={0.3}
-        />
-
-        {/* Anchor dots along the line */}
-        {days.map((day, idx) => {
-          const dateKey = format(day, 'yyyy-MM-dd');
-          const dayOrders = ordersByDate.get(dateKey) || [];
-          const hasOrders = dayOrders.length > 0;
-          const isTodayDate = isToday(day);
-          const xPercent = ((idx + 0.5) / 21) * 100;
-
-          return (
-            <circle
-              key={dateKey}
-              cx={`${xPercent}%`}
-              cy={lineY}
-              r={hasOrders ? 2.5 : isTodayDate ? 2 : 1}
-              fill={isTodayDate ? '#3b82f6' : hasOrders ? '#1a1f3a' : '#cbd5e1'}
-              opacity={hasOrders ? 0.6 : 0.4}
+        {/* Minimapa visual */}
+        <div className="flex-1 relative h-full flex items-center">
+          <div className="w-full h-2 bg-black/5 rounded-full relative overflow-hidden">
+            {/* Progreso */}
+            <div 
+              className="absolute top-0 left-0 h-full bg-blue-primary/30 rounded-full"
+              style={{ width: '33%' }}
             />
-          );
-        })}
-
-        {/* Branches to orders */}
-        {days.map((day, dayIdx) => {
-          const dateKey = format(day, 'yyyy-MM-dd');
-          const dayOrders = ordersByDate.get(dateKey) || [];
-          if (dayOrders.length === 0) return null;
-
-          const xPercent = ((dayIdx + 0.5) / 21) * 100;
-
-          return dayOrders.map((order, orderIdx) => {
-            const offsetX = getBranchOffset(orderIdx, dayOrders.length);
-            const depth = getDepth(orderIdx);
-            const nodeY = lineY + depth;
             
-            // Calculate end position with offset
-            const offsetPercent = (offsetX / 15) * 1; // Convert pixel offset to approximate percentage
-            const endXPercent = xPercent + offsetPercent;
-            
-            // Organic Bezier curve
-            const cp1y = lineY + depth * 0.4;
-            const cp2y = lineY + depth * 0.7;
+            {/* Puntos de órdenes */}
+            <div className="absolute top-0 left-0 w-full h-full flex items-center justify-between px-2">
+              {days.map((day, idx) => {
+                const dateKey = format(day, 'yyyy-MM-dd');
+                const dayOrders = ordersByDate.get(dateKey) || [];
+                const hasOrders = dayOrders.length > 0;
+                const isTodayDate = isToday(day);
 
-            return (
-              <path
-                key={order.id}
-                d={`M ${xPercent}% ${lineY} C ${xPercent}% ${cp1y}, ${endXPercent}% ${cp2y}, ${endXPercent}% ${nodeY}`}
-                fill="none"
-                stroke={getStatusColor(order)}
-                strokeWidth={1.5}
-                strokeOpacity={0.35}
-                strokeLinecap="round"
-              />
-            );
-          });
-        })}
-      </svg>
-
-      {/* Day labels */}
-      <div className="absolute top-0 left-0 right-0 flex" style={{ top: 20 }}>
-        {days.map((day, idx) => {
-          const isTodayDate = isToday(day);
-          const dateKey = format(day, 'yyyy-MM-dd');
-          const dayOrders = ordersByDate.get(dateKey) || [];
-          const hasOrders = dayOrders.length > 0;
-
-          return (
-            <div
-              key={dateKey}
-              className="flex-1 flex flex-col items-center"
-              style={{ height: lineY }}
-            >
-              {hasOrders ? (
-                <>
-                  <span className={`text-[9px] font-semibold ${isTodayDate ? 'text-blue-primary' : 'text-navy/70'}`}>
-                    {format(day, 'EEE', { locale: es })}
-                  </span>
-                  <span className={`text-[13px] font-bold ${isTodayDate ? 'text-blue-primary' : 'text-navy'}`}>
-                    {format(day, 'd')}
-                  </span>
-                </>
-              ) : (
-                <div className={`w-1 h-1 rounded-full mt-5 ${isTodayDate ? 'bg-blue-primary' : 'bg-slate-300/40'}`} />
-              )}
+                return (
+                  <div
+                    key={`mini-${dateKey}`}
+                    className={`rounded-full transition-all ${
+                      isTodayDate
+                        ? 'w-2 h-2 bg-blue-primary shadow-sm'
+                        : hasOrders
+                        ? 'w-1.5 h-1.5 bg-navy/60'
+                        : 'w-1 h-1 bg-black/20'
+                    }`}
+                  />
+                );
+              })}
             </div>
-          );
-        })}
-      </div>
+          </div>
 
-      {/* Order nodes */}
-      <div className="absolute top-0 left-0 right-0" style={{ top: 20, height: timelineHeight }}>
-        {days.map((day, dayIdx) => {
-          const dateKey = format(day, 'yyyy-MM-dd');
-          const dayOrders = ordersByDate.get(dateKey) || [];
-          if (dayOrders.length === 0) return null;
+          {/* Separadores de semanas */}
+          {[1, 2].map(i => (
+            <div
+              key={`sep-${i}`}
+              className="absolute top-0 bottom-0 w-px bg-black/10"
+              style={{ left: `${(i * 100) / 3}%` }}
+            />
+          ))}
+        </div>
 
-          return dayOrders.map((order, orderIdx) => {
-            const offsetX = getBranchOffset(orderIdx, dayOrders.length);
-            const depth = getDepth(orderIdx);
-            const nodeY = lineY + depth;
-            const color = getStatusColor(order);
-            const xPercent = ((dayIdx + 0.5) / 21) * 100;
+        {/* Selector de semanas */}
+        <div className="flex items-center gap-1.5">
+          {[0, 1, 2].map(weekIdx => {
+            const wStart = addWeeks(baseWeekStart, weekIdx);
+            const wEnd = addDays(wStart, 6);
+            const isActive = weekIdx === 1; // Semana del medio es la "actual"
 
             return (
               <div
-                key={order.id}
-                className="absolute cursor-pointer group"
-                style={{
-                  left: `calc(${xPercent}% - 21px + ${offsetX}px)`,
-                  top: nodeY - 21,
-                  width: 42,
-                  height: 42,
-                }}
-                onClick={() => onSelectOrder(order)}
-                onMouseEnter={(e) => {
-                  setHoveredOrder(order);
-                  setHoverPos({ x: e.clientX, y: e.clientY });
-                }}
-                onMouseLeave={() => setHoveredOrder(null)}
+                key={`week-${weekIdx}`}
+                className={`px-2.5 py-1 rounded-full text-[10px] font-semibold transition-all ${
+                  isActive ? 'bg-navy text-white shadow-sm' : 'text-slate-text hover:bg-black/5'
+                }`}
               >
-                <div 
-                  className="w-full h-full rounded-full bg-white border border-black/5 flex items-center justify-center text-navy group-hover:scale-110 transition-transform"
-                  style={{ 
-                    boxShadow: `0 0 0 2px ${color}20, 0 2px 8px rgba(0,0,0,0.08)`,
-                  }}
-                >
-                  <TreatmentIcon type={order.treatmentType} size={18} />
-                </div>
-                <div
-                  className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white"
-                  style={{ 
-                    background: color,
-                    boxShadow: `0 0 0 1.5px ${color}30`,
-                  }}
-                />
+                {format(wStart, 'd')}–{format(wEnd, 'd')}
               </div>
             );
-          });
-        })}
-      </div>
-
-      {/* Hover tooltip */}
-      {hoveredOrder && (
-        <div
-          className="fixed z-50 card-sm px-3 py-2.5 pointer-events-none"
-          style={{
-            left: hoverPos.x + 12,
-            top: hoverPos.y - 70,
-            minWidth: 200,
-          }}
-        >
-          <div className="text-[12px] font-semibold text-navy">{hoveredOrder.patientName}</div>
-          <div className="text-[11px] text-slate-text mt-0.5">{hoveredOrder.treatmentType} · {hoveredOrder.arch}</div>
-          <div className="flex items-center gap-2 mt-1.5">
-            <span className="text-[11px] font-medium" style={{ color: getStatusColor(hoveredOrder) }}>
-              {hoveredOrder.status}
-            </span>
-            <span className="text-[11px] text-slate-text">· {hoveredOrder.responsible}</span>
-          </div>
-          <div className="text-[10px] text-slate-text mt-1">
-            {format(parseISO(hoveredOrder.requestedDate), 'd MMM', { locale: es })}
-          </div>
+          })}
         </div>
-      )}
+
+        <div className="w-px h-4 bg-black/10 mx-2" />
+        <span className="text-[11px] font-medium text-slate-text">
+          {format(addDays(baseWeekStart, 20), 'MMM yyyy', { locale: es })}
+        </span>
+      </div>
     </div>
   );
 }

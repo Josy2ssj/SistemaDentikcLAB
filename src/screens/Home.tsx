@@ -176,12 +176,13 @@ export default function Home() {
 
               {/* Timeline body */}
               <div className="flex-1 overflow-hidden px-5 py-3 min-h-0">
-                <Timeline
-                  orders={filteredOrders}
-                  weekStart={weekStart}
-                  onSelectOrder={setSelectedOrder}
-                />
-              </div>
+              <Timeline
+                orders={filteredOrders}
+                currentDate={today}
+                weekOffset={weekOffset}
+                onSelectOrder={setSelectedOrder}
+                onWeekChange={setWeekOffset}
+              />              </div>
 
               {/* Bottom navigator */}
               <div className="px-4 pb-3 flex-shrink-0">

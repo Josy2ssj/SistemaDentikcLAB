@@ -11,20 +11,26 @@ interface OrderDetailProps {
   onClose: () => void;
 }
 
-const statusColors: Record<string, string> = {
-  'Pendiente': 'bg-pastel-yellow text-amber-700',
-  'En proceso': 'bg-pastel-blue text-blue-700',
-  'Lista': 'bg-pastel-mint text-emerald-700',
-  'Entregada': 'bg-gray-100 text-gray-600',
-};
+// Sistema de 3 estados simplificado
+function getStatusClasses(order: Order): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const reqDate = parseISO(order.requestedDate);
+  reqDate.setHours(0, 0, 0, 0);
+  
+  if (order.status !== 'Entregada' && reqDate < today) return 'bg-pastel-coral text-red-700';
+  if (order.status === 'Entregada') return 'bg-pastel-mint text-emerald-700';
+  return 'bg-pastel-yellow text-amber-700';
+}
 
 function getEffectiveStatus(order: Order): string {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const reqDate = parseISO(order.requestedDate);
   reqDate.setHours(0, 0, 0, 0);
-  if (order.status !== 'Entregada' && isBefore(reqDate, today)) return 'Atrasada';
-  return order.status;
+  if (order.status !== 'Entregada' && reqDate < today) return 'Atrasada';
+  if (order.status === 'Entregada') return 'Entregada';
+  return 'Pendiente';
 }
 
 export default function OrderDetail({ order, onClose }: OrderDetailProps) {
@@ -63,7 +69,7 @@ export default function OrderDetail({ order, onClose }: OrderDetailProps) {
           {/* Status badge */}
           <div className="flex items-center gap-2 mt-3">
             <span className={`pill text-[11px] ${
-              effectiveStatus === 'Atrasada' ? 'bg-pastel-coral text-red-700' : statusColors[order.status]
+              getStatusClasses(order)
             }`}>
               {effectiveStatus}
             </span>

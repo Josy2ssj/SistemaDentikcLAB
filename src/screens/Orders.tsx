@@ -8,21 +8,28 @@ import OrderModal from '../components/OrderModal';
 import OrderDetail from '../components/OrderDetail';
 
 const treatmentTypes = ['Alineadores', 'Retenedores', 'Modelos', 'Guías quirúrgicas', 'Guardas', 'Otros'];
-const statusFilters = ['Todas', 'Pendientes', 'En proceso', 'Listas', 'Entregadas', 'Atrasadas'];
+const statusFilters = ['Todas', 'Pendientes', 'Entregadas', 'Atrasadas'];
 
-const statusColors: Record<string, string> = {
-  'Pendiente': 'bg-pastel-yellow text-amber-700',
-  'En proceso': 'bg-pastel-blue text-blue-700',
-  'Lista': 'bg-pastel-mint text-emerald-700',
-  'Entregada': 'bg-gray-100 text-gray-600',
-  'Atrasada': 'bg-pastel-coral text-red-700',
-};
+// Sistema de 3 estados simplificado
+function getStatusClasses(order: Order): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const reqDate = parseISO(order.requestedDate);
+  reqDate.setHours(0, 0, 0, 0);
+  
+  if (order.status !== 'Entregada' && reqDate < today) return 'bg-pastel-coral text-red-700';
+  if (order.status === 'Entregada') return 'bg-pastel-mint text-emerald-700';
+  return 'bg-pastel-yellow text-amber-700';
+}
 
 function getEffectiveStatus(order: Order): string {
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const reqDate = parseISO(order.requestedDate); reqDate.setHours(0, 0, 0, 0);
-  if (order.status !== 'Entregada' && isBefore(reqDate, today)) return 'Atrasada';
-  return order.status;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const reqDate = parseISO(order.requestedDate);
+  reqDate.setHours(0, 0, 0, 0);
+  if (order.status !== 'Entregada' && reqDate < today) return 'Atrasada';
+  if (order.status === 'Entregada') return 'Entregada';
+  return 'Pendiente';
 }
 
 function getIcon(type: string) {
@@ -163,7 +170,7 @@ export default function Orders() {
                       {format(parseISO(order.requestedDate), 'd MMM', { locale: es })}
                     </td>
                     <td className="px-4 py-2.5">
-                      <span className={`pill text-[10px] px-2 py-0.5 ${statusColors[effStatus]}`}>
+                      <span className={`pill text-[10px] px-2 py-0.5 ${getStatusClasses(order)}`}>
                         {effStatus}
                       </span>
                     </td>

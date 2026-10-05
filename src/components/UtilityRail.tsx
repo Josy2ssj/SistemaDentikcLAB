@@ -14,9 +14,15 @@ export default function UtilityRail() {
   today.setHours(0, 0, 0, 0);
 
   const todayOrders = state.orders.filter(o => isSameDay(parseISO(o.requestedDate), today));
-  const overdueOrders = state.orders.filter(o => o.status !== 'Entregada' && isBefore(parseISO(o.requestedDate), today));
-  const inProgress = state.orders.filter(o => o.status === 'En proceso');
-  const ready = state.orders.filter(o => o.status === 'Lista');
+  const overdueOrders = state.orders.filter(o => {
+    const reqDate = parseISO(o.requestedDate);
+    return o.status !== 'Entregada' && isBefore(reqDate, today);
+  });
+  const pendingOrders = state.orders.filter(o => {
+    const reqDate = parseISO(o.requestedDate);
+    return o.status !== 'Entregada' && !isBefore(reqDate, today);
+  });
+  const deliveredOrders = state.orders.filter(o => o.status === 'Entregada');
 
   // Treatment type counts
   const typeCounts = state.orders.reduce((acc, o) => {
@@ -116,8 +122,8 @@ export default function UtilityRail() {
           {[
             { label: 'Órdenes del día', value: todayOrders.length, icon: Calendar, color: 'text-navy' },
             { label: 'Atrasadas', value: overdueOrders.length, icon: AlertCircle, color: 'text-red-500' },
-            { label: 'En proceso', value: inProgress.length, icon: Clock, color: 'text-blue-primary' },
-            { label: 'Listas', value: ready.length, icon: CheckCircle2, color: 'text-emerald-600' },
+            { label: 'Pendientes', value: pendingOrders.length, icon: Clock, color: 'text-amber-600' },
+            { label: 'Entregadas', value: deliveredOrders.length, icon: CheckCircle2, color: 'text-emerald-600' },
           ].map(row => (
             <div key={row.label} className="flex items-center gap-2 py-1.5">
               <row.icon size={13} className="text-slate-text flex-shrink-0" strokeWidth={1.5} />
