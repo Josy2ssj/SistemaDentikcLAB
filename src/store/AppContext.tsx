@@ -7,7 +7,17 @@ const STORAGE_KEY = 'dlsy_v5_state';
 function loadState(): AppState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // Migración: asegurar que existan todos los campos
+      return {
+        orders: parsed.orders || seedData.orders,
+        tasks: parsed.tasks || seedData.tasks,
+        inventory: parsed.inventory || seedData.inventory,
+        schedule: parsed.schedule || seedData.schedule,
+        notifications: parsed.notifications || seedData.notifications,
+      };
+    }
   } catch {}
   return seedData;
 }
