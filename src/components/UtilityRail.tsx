@@ -99,12 +99,17 @@ export default function UtilityRail() {
 
   return (
     <aside className="w-[360px] min-w-[360px] border-l border-black/5 bg-white/30 overflow-y-auto overscroll-contain scrollbar-thin p-4 space-y-3">
-      {/* Music Widget */}
-      <div className="card-sm p-3">
-        <div className="flex items-center gap-3">
-          {/* Album artwork - CSS gradient */}
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-200 via-purple-100 to-pink-100 flex items-center justify-center flex-shrink-0 shadow-sm">
-            <div className="w-5 h-5 rounded-full bg-white/60 backdrop-blur-sm" />
+      {/* Music Widget - tratamiento especial */}
+      <div 
+        className="card-sm p-3 relative overflow-hidden"
+        style={{
+          background: 'linear-gradient(135deg, rgba(232,238,255,0.75) 0%, rgba(249,238,255,0.55) 50%, rgba(255,255,255,0.9) 100%)',
+        }}
+      >
+        <div className="flex items-center gap-3 relative z-10">
+          {/* Album artwork - más color */}
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-300 via-purple-200 to-pink-200 flex items-center justify-center flex-shrink-0 shadow-md">
+            <div className="w-5 h-5 rounded-full bg-white/70 backdrop-blur-sm" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-[12px] font-semibold text-navy truncate">Focus Flow</div>
@@ -114,20 +119,26 @@ export default function UtilityRail() {
             <Heart size={14} />
           </button>
         </div>
-        <div className="flex items-center justify-center gap-4 mt-3">
+        <div className="flex items-center justify-center gap-4 mt-3 relative z-10">
           <button className="text-slate-text hover:text-navy transition-colors"><SkipBack size={14} /></button>
           <button
             onClick={() => setPlaying(!playing)}
-            className="w-9 h-9 rounded-full bg-blue-primary text-white flex items-center justify-center shadow-sm hover:shadow-md transition-all"
+            className="w-9 h-9 rounded-full bg-blue-primary text-white flex items-center justify-center shadow-md hover:shadow-lg hover:scale-105 transition-all"
           >
             {playing ? <Pause size={14} /> : <Play size={14} className="ml-0.5" />}
           </button>
           <button className="text-slate-text hover:text-navy transition-colors"><SkipForward size={14} /></button>
         </div>
-        <div className="mt-2.5 flex items-center gap-2">
+        <div className="mt-2.5 flex items-center gap-2 relative z-10">
           <span className="text-[9px] text-slate-text">1:24</span>
           <div className="flex-1 h-1 bg-black/5 rounded-full overflow-hidden">
-            <div className="h-full bg-blue-primary/40 rounded-full transition-all" style={{ width: playing ? '35%' : '0%' }} />
+            <div 
+              className="h-full rounded-full transition-all" 
+              style={{ 
+                width: playing ? '35%' : '0%',
+                background: 'linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%)',
+              }} 
+            />
           </div>
           <span className="text-[9px] text-slate-text">3:45</span>
         </div>

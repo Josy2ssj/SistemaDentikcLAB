@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Order, TreatmentType } from '../types';
-import { format, parseISO, isToday, addWeeks, addDays, startOfWeek, isBefore, isAfter } from 'date-fns';
+import { format, parseISO, isToday, addWeeks, addDays, startOfWeek } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 interface TimelineProps {
@@ -87,23 +87,55 @@ function TreatmentIcon({ type, size = 18 }: { type: TreatmentType; size?: number
   }
 }
 
+// Cálculo determinista de posiciones para ramificación orgánica
+function calculateBranchPositions(dayIdx: number, orderIdx: number, totalOrders: number, dayWidth: number, lineY: number) {
+  const baseX = dayIdx * dayWidth + dayWidth / 2;
+  
+  // Patrones de ramificación según cantidad de órdenes
+  if (totalOrders === 1) {
+    return { x: baseX, y: lineY + 55, trunkEnd: lineY + 25 };
+  }
+  
+  if (totalOrders === 2) {
+    const offsetX = orderIdx === 0 ? -28 : 28;
+    const depth = orderIdx === 0 ? 52 : 58;
+    return { x: baseX + offsetX, y: lineY + depth, trunkEnd: lineY + 20 };
+  }
+  
+  if (totalOrders === 3) {
+    const offsets = [-32, 4, 42];
+    const depths = [54, 82, 58];
+    return { 
+      x: baseX + offsets[orderIdx], 
+      y: lineY + depths[orderIdx], 
+      trunkEnd: lineY + 22 
+    };
+  }
+  
+  // Para 4+ órdenes, distribución en abanico
+  const spread = Math.min(totalOrders * 18, 80);
+  const angle = (orderIdx / (totalOrders - 1)) * Math.PI - Math.PI / 2;
+  const radius = 40 + (orderIdx * 8);
+  const offsetX = Math.cos(angle) * spread * 0.4;
+  const offsetY = Math.sin(angle) * radius * 0.3 + 50;
+  
+  return { x: baseX + offsetX, y: lineY + offsetY, trunkEnd: lineY + 20 };
+}
+
 export default function Timeline({ orders, currentDate, weekOffset, onSelectOrder, onWeekChange }: TimelineProps) {
   const [hoveredOrder, setHoveredOrder] = useState<Order | null>(null);
   const [hoverPos, setHoverPos] = useState({ x: 0, y: 0 });
 
-  // Calcular rango de 3 semanas: pasada parcial + actual + siguiente
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   
   const currentWeekStart = startOfWeek(today, { weekStartsOn: 1 });
   const baseWeekStart = addWeeks(currentWeekStart, weekOffset);
   
-  // 3 semanas: 7 días de la pasada + 7 de la actual + 7 de la siguiente = 21 días
   const days = useMemo(() => {
     return Array.from({ length: 21 }, (_, i) => addDays(baseWeekStart, i));
   }, [baseWeekStart]);
 
-  // Agrupar órdenes por fecha
   const ordersByDate = useMemo(() => {
     const map = new Map<string, Order[]>();
     orders.forEach(o => {
@@ -114,48 +146,15 @@ export default function Timeline({ orders, currentDate, weekOffset, onSelectOrde
     return map;
   }, [orders]);
 
-  // Configuración visual
   const lineY = 80;
   const timelineHeight = 280;
   const dayWidth = 100;
   const totalWidth = days.length * dayWidth;
 
-  // Calcular posiciones de órdenes con curvas que no choquen
-  const orderPositions = useMemo(() => {
-    const positions = new Map<string, { x: number; y: number; curve: number }>();
-    
-    days.forEach((day, dayIdx) => {
-      const dateKey = format(day, 'yyyy-MM-dd');
-      const dayOrders = ordersByDate.get(dateKey) || [];
-      
-      if (dayOrders.length === 0) return;
-      
-      const baseX = dayIdx * dayWidth + dayWidth / 2;
-      
-      dayOrders.forEach((order, orderIdx) => {
-        // Distribuir órdenes en abanico para evitar choques
-        const angle = (orderIdx / Math.max(dayOrders.length - 1, 1)) * Math.PI - Math.PI / 2;
-        const radius = 50 + (orderIdx * 15);
-        const offsetX = Math.cos(angle) * radius * 0.3;
-        const offsetY = Math.sin(angle) * radius * 0.5 + 40;
-        
-        positions.set(order.id, {
-          x: baseX + offsetX,
-          y: lineY + offsetY,
-          curve: offsetX * 0.5
-        });
-      });
-    });
-    
-    return positions;
-  }, [days, ordersByDate, lineY]);
-
-  // Encontrar índice del día actual
   const todayIndex = days.findIndex(d => isToday(d));
 
   return (
     <div className="relative w-full h-full flex flex-col">
-      {/* Contenedor principal del timeline */}
       <div className="flex-1 relative">
         {/* Flecha izquierda */}
         <button
@@ -181,20 +180,20 @@ export default function Timeline({ orders, currentDate, weekOffset, onSelectOrde
         <div className="w-full h-full overflow-x-auto overflow-y-hidden timeline-scroll">
           <div className="relative h-full" style={{ width: totalWidth, minHeight: timelineHeight }}>
             
-            {/* Indicador de "HOY" - línea vertical + glow */}
+            {/* Indicador de "HOY" - refinado */}
             {todayIndex >= 0 && (
               <>
                 <div
-                  className="absolute top-0 bottom-0 w-px bg-blue-primary/30"
+                  className="absolute top-0 bottom-0 w-px bg-blue-primary/20"
                   style={{ left: todayIndex * dayWidth + dayWidth / 2 }}
                 />
                 <div
-                  className="absolute top-0 bottom-0 w-16 bg-gradient-to-b from-blue-primary/10 via-blue-primary/5 to-transparent"
-                  style={{ left: todayIndex * dayWidth + dayWidth / 2 - 32 }}
+                  className="absolute top-0 bottom-0 w-12 bg-gradient-to-b from-blue-primary/5 via-blue-primary/3 to-transparent"
+                  style={{ left: todayIndex * dayWidth + dayWidth / 2 - 24 }}
                 />
                 <div
-                  className="absolute top-2 px-2 py-0.5 rounded-full bg-blue-primary text-white text-[10px] font-bold shadow-md"
-                  style={{ left: todayIndex * dayWidth + dayWidth / 2 - 15 }}
+                  className="absolute top-2 px-2 py-0.5 rounded-full bg-blue-primary/90 text-white text-[9px] font-bold shadow-sm"
+                  style={{ left: todayIndex * dayWidth + dayWidth / 2 - 14 }}
                 >
                   HOY
                 </div>
@@ -204,32 +203,36 @@ export default function Timeline({ orders, currentDate, weekOffset, onSelectOrde
             {/* SVG para líneas y ramas */}
             <svg width={totalWidth} height={timelineHeight} className="absolute top-0 left-0">
               <defs>
-                {/* Gradientes para ramas */}
-                {Array.from(orderPositions.entries()).map(([orderId, pos]) => {
-                  const order = orders.find(o => o.id === orderId);
-                  if (!order) return null;
-                  const color = getStatusColor(order);
-                  return (
-                    <linearGradient key={`grad-${orderId}`} id={`grad-${orderId}`} x1="0%" y1="0%" x2="0%" y2="100%">
-                      <stop offset="0%" stopColor={color} stopOpacity="0.6" />
-                      <stop offset="100%" stopColor={color} stopOpacity="0.2" />
-                    </linearGradient>
-                  );
+                {Array.from(ordersByDate.entries()).map(([dateKey, dayOrders]) => {
+                  const dayIdx = days.findIndex(d => format(d, 'yyyy-MM-dd') === dateKey);
+                  if (dayIdx < 0) return null;
+                  
+                  return dayOrders.map((order, orderIdx) => {
+                    const color = getStatusColor(order);
+                    const pos = calculateBranchPositions(dayIdx, orderIdx, dayOrders.length, dayWidth, lineY);
+                    
+                    return (
+                      <linearGradient key={`grad-${order.id}`} id={`grad-${order.id}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stopColor={color} stopOpacity="0.5" />
+                        <stop offset="100%" stopColor={color} stopOpacity="0.15" />
+                      </linearGradient>
+                    );
+                  });
                 })}
               </defs>
 
-              {/* Línea principal */}
+              {/* Línea principal - perfectamente recta */}
               <line
                 x1="0"
                 y1={lineY}
                 x2={totalWidth}
                 y2={lineY}
-                stroke="#cbd5e1"
-                strokeWidth="2"
-                opacity="0.4"
+                stroke="#94a3b8"
+                strokeWidth="1.5"
+                opacity="0.25"
               />
 
-              {/* Puntos de anclaje para cada día */}
+              {/* Anclajes para cada día */}
               {days.map((day, idx) => {
                 const dateKey = format(day, 'yyyy-MM-dd');
                 const dayOrders = ordersByDate.get(dateKey) || [];
@@ -242,41 +245,38 @@ export default function Timeline({ orders, currentDate, weekOffset, onSelectOrde
                     key={`anchor-${dateKey}`}
                     cx={x}
                     cy={lineY}
-                    r={hasOrders ? 6 : isTodayDate ? 5 : 2}
+                    r={hasOrders ? 5 : isTodayDate ? 4 : 1.5}
                     fill={hasOrders ? '#1e293b' : isTodayDate ? '#3b82f6' : '#cbd5e1'}
-                    opacity={hasOrders ? 0.8 : isTodayDate ? 1 : 0.3}
+                    opacity={hasOrders ? 0.7 : isTodayDate ? 0.9 : 0.3}
                   />
                 );
               })}
 
-              {/* Ramas con curvas y degradados */}
-              {Array.from(orderPositions.entries()).map(([orderId, pos]) => {
-                const order = orders.find(o => o.id === orderId);
-                if (!order) return null;
-                
-                const dateKey = order.requestedDate;
+              {/* Ramas con curvas Bezier orgánicas */}
+              {Array.from(ordersByDate.entries()).map(([dateKey, dayOrders]) => {
                 const dayIdx = days.findIndex(d => format(d, 'yyyy-MM-dd') === dateKey);
                 if (dayIdx < 0) return null;
                 
-                const startX = dayIdx * dayWidth + dayWidth / 2;
-                const startY = lineY;
-                const endX = pos.x;
-                const endY = pos.y;
-                const curve = pos.curve;
+                const anchorX = dayIdx * dayWidth + dayWidth / 2;
+                
+                return dayOrders.map((order, orderIdx) => {
+                  const pos = calculateBranchPositions(dayIdx, orderIdx, dayOrders.length, dayWidth, lineY);
+                  
+                  // Tronco compartido + curva de separación
+                  const trunkEndY = pos.trunkEnd;
+                  const path = `M ${anchorX} ${lineY} L ${anchorX} ${trunkEndY} Q ${anchorX} ${trunkEndY + 10}, ${pos.x} ${pos.y}`;
 
-                // Curva Bezier suave
-                const path = `M ${startX} ${startY} Q ${startX + curve} ${(startY + endY) / 2}, ${endX} ${endY}`;
-
-                return (
-                  <path
-                    key={`branch-${orderId}`}
-                    d={path}
-                    fill="none"
-                    stroke={`url(#grad-${orderId})`}
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
-                );
+                  return (
+                    <path
+                      key={`branch-${order.id}`}
+                      d={path}
+                      fill="none"
+                      stroke={`url(#grad-${order.id})`}
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  );
+                });
               })}
             </svg>
 
@@ -311,49 +311,50 @@ export default function Timeline({ orders, currentDate, weekOffset, onSelectOrde
             </div>
 
             {/* Nodos de órdenes */}
-            {Array.from(orderPositions.entries()).map(([orderId, pos]) => {
-              const order = orders.find(o => o.id === orderId);
-              if (!order) return null;
+            {Array.from(ordersByDate.entries()).map(([dateKey, dayOrders]) => {
+              const dayIdx = days.findIndex(d => format(d, 'yyyy-MM-dd') === dateKey);
+              if (dayIdx < 0) return null;
               
-              const color = getStatusColor(order);
+              return dayOrders.map((order, orderIdx) => {
+                const pos = calculateBranchPositions(dayIdx, orderIdx, dayOrders.length, dayWidth, lineY);
+                const color = getStatusColor(order);
 
-              return (
-                <div
-                  key={`node-${orderId}`}
-                  className="absolute cursor-pointer group"
-                  style={{
-                    left: pos.x - 21,
-                    top: pos.y - 21,
-                    width: 42,
-                    height: 42,
-                  }}
-                  onClick={() => onSelectOrder(order)}
-                  onMouseEnter={(e) => {
-                    setHoveredOrder(order);
-                    setHoverPos({ x: e.clientX, y: e.clientY });
-                  }}
-                  onMouseLeave={() => setHoveredOrder(null)}
-                >
-                  {/* Nodo principal */}
-                  <div 
-                    className="w-full h-full rounded-full bg-white border-2 border-white flex items-center justify-center text-navy group-hover:scale-110 transition-transform shadow-lg"
-                    style={{ 
-                      boxShadow: `0 0 0 3px ${color}30, 0 4px 12px rgba(0,0,0,0.15)`,
-                    }}
-                  >
-                    <TreatmentIcon type={order.treatmentType} size={18} />
-                  </div>
-                  
-                  {/* Indicador de estado con halo */}
+                return (
                   <div
-                    className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-white"
-                    style={{ 
-                      background: color,
-                      boxShadow: `0 0 0 2px ${color}40, 0 0 8px ${color}60`,
+                    key={`node-${order.id}`}
+                    className="absolute cursor-pointer group"
+                    style={{
+                      left: pos.x - 21,
+                      top: pos.y - 21,
+                      width: 42,
+                      height: 42,
                     }}
-                  />
-                </div>
-              );
+                    onClick={() => onSelectOrder(order)}
+                    onMouseEnter={(e) => {
+                      setHoveredOrder(order);
+                      setHoverPos({ x: e.clientX, y: e.clientY });
+                    }}
+                    onMouseLeave={() => setHoveredOrder(null)}
+                  >
+                    <div 
+                      className="w-full h-full rounded-full bg-white border border-black/5 flex items-center justify-center text-navy group-hover:scale-110 transition-transform"
+                      style={{ 
+                        boxShadow: `0 0 0 2px ${color}20, 0 2px 8px rgba(0,0,0,0.08)`,
+                      }}
+                    >
+                      <TreatmentIcon type={order.treatmentType} size={18} />
+                    </div>
+                    
+                    <div
+                      className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white"
+                      style={{ 
+                        background: color,
+                        boxShadow: `0 0 0 1.5px ${color}30`,
+                      }}
+                    />
+                  </div>
+                );
+              });
             })}
           </div>
         </div>
@@ -403,7 +404,6 @@ export default function Timeline({ orders, currentDate, weekOffset, onSelectOrde
 
       {/* Minimapa inferior */}
       <div className="h-16 border-t border-black/5 bg-gradient-to-r from-black/[0.02] via-black/[0.03] to-black/[0.02] flex items-center px-6 gap-4">
-        {/* Controles izquierda */}
         <div className="flex items-center gap-2">
           <button
             onClick={() => onWeekChange(weekOffset - 1)}
@@ -427,16 +427,13 @@ export default function Timeline({ orders, currentDate, weekOffset, onSelectOrde
           </span>
         </div>
 
-        {/* Minimapa visual */}
         <div className="flex-1 relative h-full flex items-center">
           <div className="w-full h-2 bg-black/5 rounded-full relative overflow-hidden">
-            {/* Progreso */}
             <div 
               className="absolute top-0 left-0 h-full bg-blue-primary/30 rounded-full"
               style={{ width: '33%' }}
             />
             
-            {/* Puntos de órdenes */}
             <div className="absolute top-0 left-0 w-full h-full flex items-center justify-between px-2">
               {days.map((day, idx) => {
                 const dateKey = format(day, 'yyyy-MM-dd');
@@ -460,7 +457,6 @@ export default function Timeline({ orders, currentDate, weekOffset, onSelectOrde
             </div>
           </div>
 
-          {/* Separadores de semanas */}
           {[1, 2].map(i => (
             <div
               key={`sep-${i}`}
@@ -470,12 +466,11 @@ export default function Timeline({ orders, currentDate, weekOffset, onSelectOrde
           ))}
         </div>
 
-        {/* Selector de semanas */}
         <div className="flex items-center gap-1.5">
           {[0, 1, 2].map(weekIdx => {
             const wStart = addWeeks(baseWeekStart, weekIdx);
             const wEnd = addDays(wStart, 6);
-            const isActive = weekIdx === 1; // Semana del medio es la "actual"
+            const isActive = weekIdx === 1;
 
             return (
               <div
