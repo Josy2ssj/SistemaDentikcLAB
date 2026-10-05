@@ -72,7 +72,7 @@ export default function UtilityRail() {
   };
 
   return (
-    <aside className="w-[360px] min-w-[360px] border-l border-black/5 bg-white/40 overflow-y-auto p-4 space-y-3">
+    <aside className="w-[360px] min-w-[360px] border-l border-black/5 bg-white/40 overflow-y-auto overscroll-contain p-4 space-y-3 scrollbar-thin">
       {/* Music */}
       <div className="card-sm p-3">
         <div className="flex items-center gap-3">

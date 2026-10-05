@@ -16,7 +16,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="ambient-bg flex h-full relative">
       {/* Sidebar */}
-      <aside className="relative z-10 w-[152px] min-w-[152px] flex flex-col border-r border-black/5 bg-white/60 backdrop-blur-sm">
+      <aside className="relative z-10 w-[152px] min-w-[152px] flex flex-col border-r border-black/5 bg-white/60 backdrop-blur-sm overflow-hidden">
         <div className="px-5 pt-6 pb-4">
           <div className="text-[15px] font-semibold text-navy tracking-tight">DentiKC</div>
           <div className="text-[11px] text-slate-text font-medium tracking-wider uppercase">LAB OS</div>

@@ -56,7 +56,7 @@ export default function Home() {
       {/* Main workspace */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="flex items-start justify-between px-8 pt-6 pb-4">
+        <header className="flex items-start justify-between px-8 pt-5 pb-3 flex-shrink-0">
           <div className="flex items-start gap-3">
             <div className="mt-1">
               <Sun size={18} className="text-amber-400" strokeWidth={1.5} />
@@ -90,8 +90,8 @@ export default function Home() {
         </header>
 
         {/* Quick actions */}
-        <div className="px-8 pb-4">
-          <div className="flex gap-3">
+        <div className="px-8 pb-3 flex-shrink-0">
+          <div className="flex gap-2.5">
             {[
               { label: 'Nueva orden', sub: 'Crear orden de trabajo', icon: '📋', action: () => setShowModal(true), bg: 'bg-pastel-blue' },
               { label: 'Pacientes', sub: 'Ver registro', icon: '👤', action: () => {}, bg: 'bg-pastel-mint' },
@@ -157,7 +157,7 @@ export default function Home() {
         </div>
 
         {/* Recent orders */}
-        <div className="px-8 pb-5">
+        <div className="px-8 pb-4 flex-shrink-0">
           <RecentOrders orders={state.orders} onSelectOrder={setSelectedOrder} />
         </div>
       </div>

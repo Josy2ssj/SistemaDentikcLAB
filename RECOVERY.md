@@ -49,6 +49,12 @@ npm run build   # dist/
 - `/inventory` → Inventario (grid)
 - `/capture` → Captura 3D (dropzone)
 
+## Scroll Architecture
+- Sidebar: fija, overflow-hidden, sin scroll
+- Workspace central: overflow-hidden, cabe en viewport (1920×1080)
+- Utility Rail: overflow-y-auto + overscroll-contain, scroll independiente
+- Ver SCROLL_ARCHITECTURE.md para detalles
+
 ## Limitaciones conocidas
 - Captura 3D: solo carga de archivos, sin visor 3D real
 - Horario: funcionalidad básica (asignar/quitar turnos)
