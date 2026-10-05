@@ -137,4 +137,10 @@ export const seedData: AppState = {
     { date: d(3), person: 'Josy', shift: 'Matutino' },
     { date: d(3), person: 'Yael', shift: 'Extra' },
   ],
+  notifications: [
+    { id: 'n1', title: 'Nueva orden', message: 'María López ha creado una orden de Alineadores', type: 'info', read: false, createdAt: d(-1) },
+    { id: 'n2', title: 'Orden atrasada', message: 'La orden de Carlos Mendoza está atrasada', type: 'warning', read: false, createdAt: d(-2) },
+    { id: 'n3', title: 'Orden completada', message: 'Sofía Morales ha completado su tratamiento', type: 'success', read: true, createdAt: d(-3) },
+    { id: 'n4', title: 'Stock bajo', message: 'El stock de Resina Aleric está bajo', type: 'warning', read: false, createdAt: d(-1) },
+  ],
 };

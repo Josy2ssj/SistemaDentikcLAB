@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { isBefore, isSameDay, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval } from 'date-fns';
-import { Play, Pause, SkipBack, SkipForward, Heart, Check, Trash2, Calendar, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Heart, Check, Trash2, Calendar, Clock, AlertCircle, CheckCircle2, X } from 'lucide-react';
 import { v4 as uuid } from 'uuid';
 
 export default function UtilityRail() {
-  const { state, toggleTask, addTask, deleteTask } = useApp();
+  const { state, toggleTask, addTask, deleteTask, markNotificationRead, deleteNotification } = useApp();
   const [playing, setPlaying] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [showAddTask, setShowAddTask] = useState(false);
@@ -99,6 +99,55 @@ export default function UtilityRail() {
 
   return (
     <aside className="w-[360px] min-w-[360px] border-l border-black/5 bg-white/30 overflow-y-auto overscroll-contain scrollbar-thin p-4 space-y-3">
+      {/* Notificaciones acumuladas */}
+      {state.notifications.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-[12px] font-semibold text-navy tracking-tight">Notificaciones</h3>
+            <span className="text-[10px] text-slate-text">{state.notifications.filter(n => !n.read).length} nuevas</span>
+          </div>
+          <div className="space-y-1.5">
+            {state.notifications.map(notification => (
+              <div
+                key={notification.id}
+                className={`card-sm p-2.5 transition-all ${
+                  notification.read ? 'opacity-60' : 'bg-white/90'
+                }`}
+              >
+                <div className="flex items-start gap-2">
+                  <div className={`w-2 h-2 rounded-full mt-1 flex-shrink-0 ${
+                    notification.type === 'info' ? 'bg-blue-500' :
+                    notification.type === 'warning' ? 'bg-amber-500' :
+                    notification.type === 'success' ? 'bg-emerald-500' :
+                    'bg-red-500'
+                  }`} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[11px] font-semibold text-navy leading-tight">{notification.title}</div>
+                    <div className="text-[10px] text-slate-text leading-tight mt-0.5">{notification.message}</div>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {!notification.read && (
+                      <button
+                        onClick={() => markNotificationRead(notification.id)}
+                        className="text-[9px] text-blue-primary hover:text-blue-600 transition-colors"
+                      >
+                        ✓
+                      </button>
+                    )}
+                    <button
+                      onClick={() => deleteNotification(notification.id)}
+                      className="text-slate-text hover:text-red-500 transition-colors"
+                    >
+                      <X size={11} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Music Widget - tratamiento especial */}
       <div 
         className="card-sm p-3 relative overflow-hidden"

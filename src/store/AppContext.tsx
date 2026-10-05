@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
-import { AppState, Order, Task, InventoryItem, ScheduleEntry } from '../types';
+import { AppState, Order, Task, InventoryItem, ScheduleEntry, Notification } from '../types';
 import { seedData } from '../data/seed';
 
 const STORAGE_KEY = 'dlsy_v5_state';
@@ -29,6 +29,9 @@ type Action =
   | { type: 'UPDATE_INVENTORY'; payload: InventoryItem }
   | { type: 'DELETE_INVENTORY'; payload: string }
   | { type: 'SET_SCHEDULE'; payload: ScheduleEntry[] }
+  | { type: 'ADD_NOTIFICATION'; payload: Notification }
+  | { type: 'MARK_NOTIFICATION_READ'; payload: string }
+  | { type: 'DELETE_NOTIFICATION'; payload: string }
   | { type: 'RESET_DATA' };
 
 function reducer(state: AppState, action: Action): AppState {
@@ -53,6 +56,12 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, inventory: state.inventory.filter(i => i.id !== action.payload) };
     case 'SET_SCHEDULE':
       return { ...state, schedule: action.payload };
+    case 'ADD_NOTIFICATION':
+      return { ...state, notifications: [action.payload, ...state.notifications] };
+    case 'MARK_NOTIFICATION_READ':
+      return { ...state, notifications: state.notifications.map(n => n.id === action.payload ? { ...n, read: true } : n) };
+    case 'DELETE_NOTIFICATION':
+      return { ...state, notifications: state.notifications.filter(n => n.id !== action.payload) };
     case 'RESET_DATA':
       return seedData;
     default:
@@ -73,6 +82,9 @@ interface AppContextType {
   updateInventoryItem: (item: InventoryItem) => void;
   deleteInventoryItem: (id: string) => void;
   setSchedule: (entries: ScheduleEntry[]) => void;
+  addNotification: (notification: Notification) => void;
+  markNotificationRead: (id: string) => void;
+  deleteNotification: (id: string) => void;
   resetData: () => void;
 }
 
@@ -93,6 +105,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const updateInventoryItem = useCallback((item: InventoryItem) => dispatch({ type: 'UPDATE_INVENTORY', payload: item }), []);
   const deleteInventoryItem = useCallback((id: string) => dispatch({ type: 'DELETE_INVENTORY', payload: id }), []);
   const setSchedule = useCallback((entries: ScheduleEntry[]) => dispatch({ type: 'SET_SCHEDULE', payload: entries }), []);
+  const addNotification = useCallback((notification: Notification) => dispatch({ type: 'ADD_NOTIFICATION', payload: notification }), []);
+  const markNotificationRead = useCallback((id: string) => dispatch({ type: 'MARK_NOTIFICATION_READ', payload: id }), []);
+  const deleteNotification = useCallback((id: string) => dispatch({ type: 'DELETE_NOTIFICATION', payload: id }), []);
   const resetData = useCallback(() => dispatch({ type: 'RESET_DATA' }), []);
 
   return (
@@ -100,7 +115,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       state, dispatch, addOrder, updateOrder, deleteOrder,
       addTask, toggleTask, deleteTask,
       addInventoryItem, updateInventoryItem, deleteInventoryItem,
-      setSchedule, resetData
+      setSchedule, addNotification, markNotificationRead, deleteNotification, resetData
     }}>
       {children}
     </AppContext.Provider>

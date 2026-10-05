@@ -295,7 +295,7 @@ export default function Timeline({ orders, currentDate, weekOffset, onSelectOrde
                     className="absolute flex flex-col items-center"
                     style={{ left: x, width: dayWidth, top: lineY - 50 }}
                   >
-                    {hasOrders && (
+                    {hasOrders ? (
                       <>
                         <div className={`text-[10px] font-semibold ${isTodayDate ? 'text-blue-primary' : 'text-navy/70'}`}>
                           {format(day, 'EEE', { locale: es })}
@@ -304,6 +304,10 @@ export default function Timeline({ orders, currentDate, weekOffset, onSelectOrde
                           {format(day, 'd')}
                         </div>
                       </>
+                    ) : (
+                      <div className={`text-[9px] ${isTodayDate ? 'text-blue-primary/60' : 'text-slate-text/40'}`}>
+                        {format(day, 'd')}
+                      </div>
                     )}
                   </div>
                 );

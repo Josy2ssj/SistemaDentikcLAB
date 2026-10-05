@@ -3,7 +3,7 @@ import { useApp } from '../store/AppContext';
 import { Order } from '../types';
 import { format, startOfWeek, addWeeks, addDays, isBefore, parseISO, startOfDay, isToday } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Search, Plus, ChevronLeft, ChevronRight, Sun, Bell, ChevronDown } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Sun, Bell, ChevronDown } from 'lucide-react';
 import Timeline from '../components/Timeline';
 import OrderModal from '../components/OrderModal';
 import OrderDetail from '../components/OrderDetail';
@@ -15,7 +15,6 @@ export default function Home() {
   const [showModal, setShowModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [weekOffset, setWeekOffset] = useState(0);
-  const [searchQuery, setSearchQuery] = useState('');
 
   const today = startOfDay(new Date());
   const weekStart = addWeeks(startOfWeek(today, { weekStartsOn: 1 }), weekOffset);
@@ -37,19 +36,6 @@ export default function Home() {
     return 'Buenas noches';
   })();
 
-  const filteredOrders = useMemo(() => {
-    let orders = state.orders;
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      orders = orders.filter(o =>
-        o.patientName.toLowerCase().includes(q) ||
-        o.id.toLowerCase().includes(q) ||
-        o.treatmentType.toLowerCase().includes(q)
-      );
-    }
-    return orders;
-  }, [state.orders, searchQuery]);
-
   return (
     <div className="flex h-full flex-col">
       {/* GLOBAL HEADER - spans full width */}
@@ -65,34 +51,22 @@ export default function Home() {
             </p>
           </div>
         </div>
-        {/* User cluster - far right of entire shell */}
-        <div className="flex items-center gap-2 bg-white/80 backdrop-blur-md border border-black/[0.08] rounded-full px-2.5 py-1.5 shadow-sm">
-          <div className="relative">
-            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-text/70" />
-            <input
-              type="text"
-              placeholder="Buscar paciente, orden..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="input-field pl-8 pr-3 w-[230px] h-[30px] text-[11.5px] bg-transparent border-none focus:ring-0 placeholder:text-slate-text/50"
-            />
-          </div>
-          <div className="w-px h-5 bg-gradient-to-b from-transparent via-black/10 to-transparent" />
-          <button className="relative w-[30px] h-[30px] rounded-full hover:bg-black/5 flex items-center justify-center text-slate-text hover:text-navy transition-all">
-            <Bell size={14} strokeWidth={1.5} />
-            <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500 border-2 border-white shadow-sm" />
-          </button>
-          <div className="w-px h-5 bg-gradient-to-b from-transparent via-black/10 to-transparent" />
-          <button className="flex items-center gap-2 pl-1 pr-2.5 py-1 rounded-full hover:bg-black/5 transition-all">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-[12px] font-bold shadow-sm">J</div>
-            <div className="text-left hidden xl:block">
-              <div className="text-[11.5px] font-bold text-navy leading-tight">Josy</div>
-              <div className="text-[9.5px] text-slate-text leading-tight">Administrador</div>
-            </div>
-            <ChevronDown size={11} className="text-slate-text/70 hidden xl:block" />
-          </button>
-        </div>
-      </header>
+          {/* User cluster - far right of entire shell */}
+          <div className="flex items-center gap-2 bg-white/80 backdrop-blur-md border border-black/[0.08] rounded-full px-2.5 py-1.5 shadow-sm">
+            <button className="relative w-[30px] h-[30px] rounded-full hover:bg-black/5 flex items-center justify-center text-slate-text hover:text-navy transition-all">
+              <Bell size={14} strokeWidth={1.5} />
+              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500 border-2 border-white shadow-sm" />
+            </button>
+            <div className="w-px h-5 bg-gradient-to-b from-transparent via-black/10 to-transparent" />
+            <button className="flex items-center gap-2 pl-1 pr-2.5 py-1 rounded-full hover:bg-black/5 transition-all">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-[12px] font-bold shadow-sm">J</div>
+              <div className="text-left hidden xl:block">
+                <div className="text-[11.5px] font-bold text-navy leading-tight">Josy</div>
+                <div className="text-[9.5px] text-slate-text leading-tight">Administrador</div>
+              </div>
+              <ChevronDown size={11} className="text-slate-text/70 hidden xl:block" />
+            </button>
+          </div>      </header>
 
       {/* MAIN CONTENT AREA */}
       <div className="flex flex-1 overflow-hidden">
@@ -134,7 +108,7 @@ export default function Home() {
           </div>
 
           {/* Timeline section */}
-          <div className="flex-1 px-7 pb-3 overflow-hidden flex flex-col min-h-0">
+          <div className="flex-1 px-7 pb-3 flex flex-col min-h-0">
             <div className="card flex-1 flex flex-col overflow-hidden">
               {/* Timeline header */}
               <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-black/5 flex-shrink-0">
@@ -157,9 +131,6 @@ export default function Home() {
                   <button onClick={() => setWeekOffset(0)} className="px-3 py-1.5 rounded-full bg-white border border-black/10 text-[11px] font-semibold text-slate-text hover:text-navy hover:border-black/20 transition-all shadow-sm">
                     Hoy
                   </button>
-                  <button className="w-8 h-8 rounded-full bg-white border border-black/10 flex items-center justify-center text-slate-text hover:text-navy hover:border-black/20 transition-all shadow-sm">
-                    <Search size={14} />
-                  </button>
                   <button onClick={() => setShowModal(true)} className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white shadow-md hover:shadow-lg hover:scale-105 transition-all">
                     <Plus size={15} strokeWidth={2.5} />
                   </button>
@@ -167,9 +138,9 @@ export default function Home() {
               </div>
 
               {/* Timeline body */}
-              <div className="flex-1 px-5 py-3 min-h-0">
+              <div className="flex-1 px-5 py-3 min-h-0 overflow-hidden">
                 <Timeline
-                  orders={filteredOrders}
+                  orders={state.orders}
                   currentDate={today}
                   weekOffset={weekOffset}
                   onSelectOrder={setSelectedOrder}
@@ -200,7 +171,7 @@ export default function Home() {
                         {Array.from({ length: 21 }).map((_, i) => {
                           const dayDate = addDays(weekStart, i);
                           const dateKey = format(dayDate, 'yyyy-MM-dd');
-                          const hasOrders = filteredOrders.some(o => o.requestedDate === dateKey);
+                          const hasOrders = state.orders.some((o: Order) => o.requestedDate === dateKey);
                           const isTodayDate = isToday(dayDate);
                           return (
                             <div
