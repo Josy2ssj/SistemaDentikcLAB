@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../store/AppContext';
-import { isBefore, isSameDay, parseISO } from 'date-fns';
+import { isBefore, isSameDay, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval } from 'date-fns';
 import { Play, Pause, SkipBack, SkipForward, Heart, Check, Trash2, Calendar, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { v4 as uuid } from 'uuid';
 
@@ -9,6 +9,7 @@ export default function UtilityRail() {
   const [playing, setPlaying] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [showAddTask, setShowAddTask] = useState(false);
+  const [chartPeriod, setChartPeriod] = useState<'Semana' | 'Mes' | 'Año'>('Semana');
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -24,12 +25,32 @@ export default function UtilityRail() {
   });
   const deliveredOrders = state.orders.filter(o => o.status === 'Entregada');
 
-  // Treatment type counts
-  const typeCounts = state.orders.reduce((acc, o) => {
+  // Calcular rango según el período seleccionado
+  const getDateRange = () => {
+    switch (chartPeriod) {
+      case 'Semana':
+        return { start: startOfWeek(today, { weekStartsOn: 1 }), end: endOfWeek(today, { weekStartsOn: 1 }) };
+      case 'Mes':
+        return { start: startOfMonth(today), end: endOfMonth(today) };
+      case 'Año':
+        return { start: startOfYear(today), end: endOfYear(today) };
+    }
+  };
+
+  const dateRange = getDateRange();
+  
+  // Filtrar órdenes según el período
+  const periodOrders = state.orders.filter(o => {
+    const reqDate = parseISO(o.requestedDate);
+    return isWithinInterval(reqDate, { start: dateRange.start, end: dateRange.end });
+  });
+
+  // Treatment type counts según el período
+  const typeCounts = periodOrders.reduce((acc, o) => {
     acc[o.treatmentType] = (acc[o.treatmentType] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
-  const totalOrders = state.orders.length;
+  const totalOrders = periodOrders.length;
 
   // Donut chart data
   const typeColors: Record<string, string> = {
@@ -112,33 +133,46 @@ export default function UtilityRail() {
         </div>
       </div>
 
-      {/* Today summary */}
+      {/* Resumen unificado */}
       <div className="card-sm p-3">
-        <div className="flex items-center justify-between mb-2.5">
-          <h3 className="text-[12px] font-semibold text-navy tracking-tight">Resumen de hoy</h3>
-          <button className="text-[10px] text-blue-primary font-medium">Ver agenda →</button>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-[12px] font-semibold text-navy tracking-tight">Resumen</h3>
+          <div className="flex gap-0.5 bg-black/[0.03] rounded-full p-0.5">
+            {(['Semana', 'Mes', 'Año'] as const).map(period => (
+              <button
+                key={period}
+                onClick={() => setChartPeriod(period)}
+                className={`px-2 py-0.5 rounded-full text-[9px] font-medium transition-all ${
+                  chartPeriod === period
+                    ? 'bg-white text-navy shadow-sm'
+                    : 'text-slate-text hover:text-navy'
+                }`}
+              >
+                {period}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="space-y-1">
+
+        {/* Resumen de hoy */}
+        <div className="space-y-1 mb-3 pb-3 border-b border-black/5">
           {[
             { label: 'Órdenes del día', value: todayOrders.length, icon: Calendar, color: 'text-navy' },
             { label: 'Atrasadas', value: overdueOrders.length, icon: AlertCircle, color: 'text-red-500' },
             { label: 'Pendientes', value: pendingOrders.length, icon: Clock, color: 'text-amber-600' },
             { label: 'Entregadas', value: deliveredOrders.length, icon: CheckCircle2, color: 'text-emerald-600' },
           ].map(row => (
-            <div key={row.label} className="flex items-center gap-2 py-1.5">
-              <row.icon size={13} className="text-slate-text flex-shrink-0" strokeWidth={1.5} />
-              <span className="text-[11.5px] text-slate-text flex-1">{row.label}</span>
-              <span className={`text-[13px] font-semibold tabular-nums ${row.color}`}>{row.value}</span>
+            <div key={row.label} className="flex items-center gap-2 py-1">
+              <row.icon size={12} className="text-slate-text flex-shrink-0" strokeWidth={1.5} />
+              <span className="text-[10.5px] text-slate-text flex-1">{row.label}</span>
+              <span className={`text-[12px] font-semibold tabular-nums ${row.color}`}>{row.value}</span>
             </div>
           ))}
         </div>
-      </div>
 
-      {/* Work types donut */}
-      <div className="card-sm p-3">
-        <h3 className="text-[12px] font-semibold text-navy mb-3 tracking-tight">Tipos de trabajos</h3>
-        <div className="flex items-center gap-4">
-          <div className="relative w-[90px] h-[90px] flex-shrink-0">
+        {/* Tipos de trabajos según período */}
+        <div className="flex items-center gap-3">
+          <div className="relative w-[80px] h-[80px] flex-shrink-0">
             <svg viewBox="0 0 90 90" className="w-full h-full -rotate-90">
               {donutPaths.map((seg, i) => (
                 <path
@@ -152,16 +186,18 @@ export default function UtilityRail() {
               ))}
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-[18px] font-bold text-navy leading-none">{totalOrders}</span>
-              <span className="text-[9px] text-slate-text mt-0.5">Órdenes</span>
+              <span className="text-[16px] font-bold text-navy leading-none">{totalOrders}</span>
+              <span className="text-[8px] text-slate-text mt-0.5">
+                {chartPeriod === 'Semana' ? 'Esta sem.' : chartPeriod === 'Mes' ? 'Este mes' : 'Este año'}
+              </span>
             </div>
           </div>
-          <div className="flex-1 space-y-1.5">
+          <div className="flex-1 space-y-1">
             {donutSegments.map(seg => (
               <div key={seg.type} className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: seg.color }} />
-                <span className="text-[10px] text-slate-text flex-1 truncate">{seg.type}</span>
-                <span className="text-[10px] font-semibold text-navy tabular-nums">{seg.count}</span>
+                <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: seg.color }} />
+                <span className="text-[9px] text-slate-text flex-1 truncate">{seg.type}</span>
+                <span className="text-[9px] font-semibold text-navy tabular-nums">{seg.count}</span>
               </div>
             ))}
           </div>
