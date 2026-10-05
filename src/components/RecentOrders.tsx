@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { Order, TreatmentType } from '../types';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -94,6 +95,7 @@ function TreatmentIcon({ type, size = 16 }: { type: TreatmentType; size?: number
 }
 
 export default function RecentOrders({ orders, onSelectOrder }: RecentOrdersProps) {
+  const navigate = useNavigate();
   const recent = [...orders]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 4);
@@ -102,7 +104,12 @@ export default function RecentOrders({ orders, onSelectOrder }: RecentOrdersProp
     <div className="card p-3.5">
       <div className="flex items-center justify-between mb-2.5">
         <h3 className="text-[13px] font-semibold text-navy tracking-tight">Órdenes recientes</h3>
-        <button className="text-[11px] text-blue-primary font-medium hover:underline">Ver todas →</button>
+        <button 
+          onClick={() => navigate('/orders')}
+          className="text-[11px] text-blue-primary font-medium hover:underline"
+        >
+          Ver todas →
+        </button>
       </div>
       <div className="grid grid-cols-4 gap-2">
         {recent.map(order => (

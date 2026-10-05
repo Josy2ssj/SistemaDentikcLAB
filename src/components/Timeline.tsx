@@ -474,17 +474,21 @@ export default function Timeline({ orders, currentDate, weekOffset, onSelectOrde
           {[0, 1, 2].map(weekIdx => {
             const wStart = addWeeks(baseWeekStart, weekIdx);
             const wEnd = addDays(wStart, 6);
-            const isActive = weekIdx === 1;
+            // La semana "activa" es la que contiene el día actual
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const isActive = today >= wStart && today <= wEnd;
 
             return (
-              <div
+              <button
                 key={`week-${weekIdx}`}
+                onClick={() => onWeekChange(weekIdx - 1)}
                 className={`px-2.5 py-1 rounded-full text-[10px] font-semibold transition-all ${
                   isActive ? 'bg-navy text-white shadow-sm' : 'text-slate-text hover:bg-black/5'
                 }`}
               >
                 {format(wStart, 'd')}–{format(wEnd, 'd')}
-              </div>
+              </button>
             );
           })}
         </div>

@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { isBefore, isSameDay, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 import { Play, Pause, SkipBack, SkipForward, Heart, Check, Trash2, Calendar, Clock, AlertCircle, CheckCircle2, X } from 'lucide-react';
 import { v4 as uuid } from 'uuid';
 
 export default function UtilityRail() {
+  const navigate = useNavigate();
   const { state, toggleTask, addTask, deleteTask, markNotificationRead, deleteNotification } = useApp();
   const [playing, setPlaying] = useState(false);
+  const [liked, setLiked] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [showAddTask, setShowAddTask] = useState(false);
   const [chartPeriod, setChartPeriod] = useState<'Semana' | 'Mes' | 'Año'>('Semana');
@@ -164,8 +167,11 @@ export default function UtilityRail() {
             <div className="text-[12px] font-semibold text-navy truncate">Focus Flow</div>
             <div className="text-[10px] text-slate-text">Lo-fi Beats</div>
           </div>
-          <button className="text-slate-text hover:text-red-400 transition-colors flex-shrink-0">
-            <Heart size={14} />
+          <button 
+            onClick={() => setLiked(!liked)}
+            className={`transition-colors flex-shrink-0 ${liked ? 'text-red-500' : 'text-slate-text hover:text-red-400'}`}
+          >
+            <Heart size={14} fill={liked ? 'currentColor' : 'none'} />
           </button>
         </div>
         <div className="flex items-center justify-center gap-4 mt-3 relative z-10">
@@ -217,16 +223,20 @@ export default function UtilityRail() {
         {/* Resumen de hoy */}
         <div className="space-y-1 mb-3 pb-3 border-b border-black/5">
           {[
-            { label: 'Órdenes del día', value: todayOrders.length, icon: Calendar, color: 'text-navy' },
-            { label: 'Atrasadas', value: overdueOrders.length, icon: AlertCircle, color: 'text-red-500' },
-            { label: 'Pendientes', value: pendingOrders.length, icon: Clock, color: 'text-amber-600' },
-            { label: 'Entregadas', value: deliveredOrders.length, icon: CheckCircle2, color: 'text-emerald-600' },
+            { label: 'Órdenes del día', value: todayOrders.length, icon: Calendar, color: 'text-navy', action: () => navigate('/orders') },
+            { label: 'Atrasadas', value: overdueOrders.length, icon: AlertCircle, color: 'text-red-500', action: () => navigate('/orders') },
+            { label: 'Pendientes', value: pendingOrders.length, icon: Clock, color: 'text-amber-600', action: () => navigate('/orders') },
+            { label: 'Entregadas', value: deliveredOrders.length, icon: CheckCircle2, color: 'text-emerald-600', action: () => navigate('/orders') },
           ].map(row => (
-            <div key={row.label} className="flex items-center gap-2 py-1">
+            <button 
+              key={row.label} 
+              onClick={row.action}
+              className="flex items-center gap-2 py-1 w-full hover:bg-black/[0.02] rounded-lg px-1 -mx-1 transition-colors text-left"
+            >
               <row.icon size={12} className="text-slate-text flex-shrink-0" strokeWidth={1.5} />
               <span className="text-[10.5px] text-slate-text flex-1">{row.label}</span>
               <span className={`text-[12px] font-semibold tabular-nums ${row.color}`}>{row.value}</span>
-            </div>
+            </button>
           ))}
         </div>
 

@@ -82,7 +82,9 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         {/* Settings */}
         <div className={`pb-4 transition-all duration-250 ease-out ${collapsed ? 'px-2' : 'px-3'}`}>
           <div className="relative group">
-            <button className={`w-full flex items-center gap-2.5 rounded-xl text-[13px] font-medium text-slate-text hover:text-navy hover:bg-white/50 transition-all ${
+            <button 
+              onClick={() => alert('Configuración - Próximamente disponible')}
+              className={`w-full flex items-center gap-2.5 rounded-xl text-[13px] font-medium text-slate-text hover:text-navy hover:bg-white/50 transition-all ${
               collapsed ? 'justify-center px-2 py-2.5' : 'px-3 py-2.5'
             }`}>
               <Settings size={17} strokeWidth={1.5} className="flex-shrink-0" />

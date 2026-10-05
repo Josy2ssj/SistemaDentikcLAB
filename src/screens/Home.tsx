@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { Order } from '../types';
 import { format, startOfWeek, addWeeks, addDays, isBefore, parseISO, startOfDay, isToday } from 'date-fns';
@@ -11,10 +12,13 @@ import RecentOrders from '../components/RecentOrders';
 import UtilityRail from '../components/UtilityRail';
 
 export default function Home() {
+  const navigate = useNavigate();
   const { state } = useApp();
   const [showModal, setShowModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [weekOffset, setWeekOffset] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [viewMode, setViewMode] = useState<'Semana' | 'Mes' | 'Año'>('Semana');
 
   const today = startOfDay(new Date());
   const weekStart = addWeeks(startOfWeek(today, { weekStartsOn: 1 }), weekOffset);
@@ -52,11 +56,61 @@ export default function Home() {
           </div>
         </div>
           {/* User cluster - far right of entire shell */}
-          <div className="flex items-center gap-2 bg-white/80 backdrop-blur-md border border-black/[0.08] rounded-full px-2.5 py-1.5 shadow-sm">
-            <button className="relative w-[30px] h-[30px] rounded-full hover:bg-black/5 flex items-center justify-center text-slate-text hover:text-navy transition-all">
+          <div className="flex items-center gap-2 bg-white/80 backdrop-blur-md border border-black/[0.08] rounded-full px-2.5 py-1.5 shadow-sm relative">
+            <button 
+              onClick={() => setShowNotifications(!showNotifications)}
+              className="relative w-[30px] h-[30px] rounded-full hover:bg-black/5 flex items-center justify-center text-slate-text hover:text-navy transition-all"
+            >
               <Bell size={14} strokeWidth={1.5} />
-              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500 border-2 border-white shadow-sm" />
+              {state.notifications.filter(n => !n.read).length > 0 && (
+                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500 border-2 border-white shadow-sm" />
+              )}
             </button>
+            
+            {/* Notifications dropdown */}
+            {showNotifications && (
+              <div className="absolute top-full right-0 mt-2 w-80 card p-3 shadow-xl z-50">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-[13px] font-semibold text-navy">Notificaciones</h3>
+                  <span className="text-[10px] text-slate-text">
+                    {state.notifications.filter(n => !n.read).length} nuevas
+                  </span>
+                </div>
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {state.notifications.length === 0 ? (
+                    <div className="text-center py-4 text-[12px] text-slate-text">
+                      No hay notificaciones
+                    </div>
+                  ) : (
+                    state.notifications.map(notification => (
+                      <div
+                        key={notification.id}
+                        className={`p-2.5 rounded-lg transition-all ${
+                          notification.read ? 'bg-black/[0.02]' : 'bg-blue-50/50'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <div className={`w-2 h-2 rounded-full mt-1 flex-shrink-0 ${
+                            notification.type === 'info' ? 'bg-blue-500' :
+                            notification.type === 'warning' ? 'bg-amber-500' :
+                            notification.type === 'success' ? 'bg-emerald-500' :
+                            'bg-red-500'
+                          }`} />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[11px] font-semibold text-navy leading-tight">
+                              {notification.title}
+                            </div>
+                            <div className="text-[10px] text-slate-text leading-tight mt-0.5">
+                              {notification.message}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
             <div className="w-px h-5 bg-gradient-to-b from-transparent via-black/10 to-transparent" />
             <button className="flex items-center gap-2 pl-1 pr-2.5 py-1 rounded-full hover:bg-black/5 transition-all">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-[12px] font-bold shadow-sm">J</div>
@@ -85,10 +139,10 @@ export default function Home() {
             <div className="flex gap-2">
               {[
                 { label: 'Nueva orden', sub: 'Crear orden de trabajo', icon: '📋', action: () => setShowModal(true), bg: 'bg-pastel-blue' },
-                { label: 'Pacientes', sub: 'Ver registro', icon: '👤', action: () => {}, bg: 'bg-pastel-mint' },
-                { label: 'Captura 3D', sub: 'Escanear y exportar', icon: '🦷', action: () => {}, bg: 'bg-pastel-lavender' },
-                { label: 'Inventario', sub: 'Materiales y stock', icon: '📦', action: () => {}, bg: 'bg-pastel-yellow' },
-                { label: 'Horario', sub: 'Ver turnos del equipo', icon: '📅', action: () => {}, bg: 'bg-pastel-peach' },
+                { label: 'Pacientes', sub: 'Ver registro', icon: '👤', action: () => navigate('/orders'), bg: 'bg-pastel-mint' },
+                { label: 'Captura 3D', sub: 'Escanear y exportar', icon: '🦷', action: () => navigate('/capture'), bg: 'bg-pastel-lavender' },
+                { label: 'Inventario', sub: 'Materiales y stock', icon: '📦', action: () => navigate('/inventory'), bg: 'bg-pastel-yellow' },
+                { label: 'Horario', sub: 'Ver turnos del equipo', icon: '📅', action: () => navigate('/schedule'), bg: 'bg-pastel-peach' },
               ].map(item => (
                 <button
                   key={item.label}
@@ -115,10 +169,14 @@ export default function Home() {
                 <div className="flex items-center gap-3">
                   <h2 className="text-[15px] font-bold text-navy tracking-tight">Órdenes</h2>
                   <div className="flex gap-0.5 bg-gradient-to-r from-black/[0.03] to-black/[0.05] rounded-full p-0.5 shadow-inner">
-                    {['Semana', 'Mes', 'Año'].map(v => (
-                      <button key={v} className={`px-3.5 py-1.5 rounded-full text-[11px] font-semibold transition-all ${
-                        v === 'Semana' ? 'pill-active' : 'text-slate-text hover:text-navy hover:bg-white/50'
-                      }`}>
+                    {(['Semana', 'Mes', 'Año'] as const).map(v => (
+                      <button 
+                        key={v} 
+                        onClick={() => setViewMode(v)}
+                        className={`px-3.5 py-1.5 rounded-full text-[11px] font-semibold transition-all ${
+                          viewMode === v ? 'pill-active' : 'text-slate-text hover:text-navy hover:bg-white/50'
+                        }`}
+                      >
                         {v}
                       </button>
                     ))}
