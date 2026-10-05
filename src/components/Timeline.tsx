@@ -156,7 +156,7 @@ export default function Timeline({ orders, currentDate, weekOffset, onSelectOrde
   return (
     <div className="relative w-full h-full flex flex-col">
       {/* Contenedor principal del timeline */}
-      <div className="flex-1 relative overflow-hidden">
+      <div className="flex-1 relative">
         {/* Flecha izquierda */}
         <button
           onClick={() => onWeekChange(weekOffset - 1)}

@@ -151,14 +151,6 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1 bg-white/50 rounded-full p-0.5 border border-black/5">
-                    <button onClick={() => setWeekOffset(w => w - 1)} className="w-7 h-7 rounded-full hover:bg-black/5 flex items-center justify-center text-slate-text hover:text-navy transition-all">
-                      <ChevronLeft size={14} />
-                    </button>
-                    <button onClick={() => setWeekOffset(w => w + 1)} className="w-7 h-7 rounded-full hover:bg-black/5 flex items-center justify-center text-slate-text hover:text-navy transition-all">
-                      <ChevronRight size={14} />
-                    </button>
-                  </div>
                   <div className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-blue-50 to-blue-100/50 text-[11px] font-semibold text-navy border border-blue-200/30">
                     {format(weekStart, 'd MMM', { locale: es })} — {format(addDays(weekStart, 20), 'd MMM yyyy', { locale: es })}
                   </div>
@@ -175,14 +167,15 @@ export default function Home() {
               </div>
 
               {/* Timeline body */}
-              <div className="flex-1 overflow-hidden px-5 py-3 min-h-0">
-              <Timeline
-                orders={filteredOrders}
-                currentDate={today}
-                weekOffset={weekOffset}
-                onSelectOrder={setSelectedOrder}
-                onWeekChange={setWeekOffset}
-              />              </div>
+              <div className="flex-1 px-5 py-3 min-h-0">
+                <Timeline
+                  orders={filteredOrders}
+                  currentDate={today}
+                  weekOffset={weekOffset}
+                  onSelectOrder={setSelectedOrder}
+                  onWeekChange={setWeekOffset}
+                />
+              </div>
 
               {/* Bottom navigator */}
               <div className="px-4 pb-3 flex-shrink-0">
